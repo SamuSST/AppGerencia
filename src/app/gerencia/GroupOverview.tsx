@@ -46,16 +46,16 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
   return (
     <div className="space-y-6">
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Ingresos operacionales" value={fmtValue(totalIng, "cop")} delta={variation(totalIng, total("ingresos", "y24"))} note="6 unidades de negocio" accent="#e42b35" />
-        <Kpi label="EBITDA" value={fmtValue(total("ebitda", "y25", withEbitda), "cop")} delta={variation(total("ebitda", "y25", withEbitda), total("ebitda", "y24", withEbitda))} note="5 unidades · Tecnosabana no lo reporta" accent="#0d2438" />
+        <Kpi label="Ingresos operacionales" value={fmtValue(totalIng, "cop")} delta={variation(totalIng, total("ingresos", "y24"))} note="Suma de los 6 CDAs" accent="#e42b35" />
+        <Kpi label="EBITDA" value={fmtValue(total("ebitda", "y25", withEbitda), "cop")} delta={variation(total("ebitda", "y25", withEbitda), total("ebitda", "y24", withEbitda))} note="5 CDAs · Tecnosabana no lo reporta" accent="#0d2438" />
         <Kpi label="Resultado antes de impuestos" value={fmtValue(total("resultado", "y25"), "cop")} delta={variation(total("resultado", "y25"), total("resultado", "y24"))} note={`Margen neto ${fmtValue((total("resultado", "y25") / totalIng) * 100, "pct")}`} accent="#df9d37" />
-        <Kpi label="Servicios realizados" value={fmtValue(total("servicios", "y25", withServ), "count")} delta={variation(total("servicios", "y25", withServ), total("servicios", "y24", withServ))} note="4 CDAs con hoja de servicios" accent="#8298a8" />
+        <Kpi label="Servicios realizados" value={fmtValue(total("servicios", "y25", withServ), "count")} delta={variation(total("servicios", "y25", withServ), total("servicios", "y24", withServ))} note="5 CDAs · Tecnosabana no lo reporta" accent="#8298a8" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Panel
           eyebrow="EVOLUCIÓN MENSUAL 2025"
-          title={`${trendDef.label} por unidad`}
+          title={`${trendDef.label} por CDA`}
           right={<Segmented value={trend} onChange={setTrend} options={TREND_METRICS.map((k) => ({ value: k, label: metricDef(k).label.split(" ")[0] }))} />}
         >
           <div className="mb-3 flex flex-wrap gap-2">
@@ -104,7 +104,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
           </div>
         </Panel>
 
-        <Panel eyebrow={periodLabel(period).toUpperCase()} title="Ingresos por unidad · 2025 vs 2024" right={<Legend items={[{ label: "2025", color: "#0d2438" }, { label: "2024", color: PREV_COLOR }]} />}>
+        <Panel eyebrow={periodLabel(period).toUpperCase()} title="Ingresos por CDA · 2025 vs 2024" right={<Legend items={[{ label: "2025", color: "#0d2438" }, { label: "2024", color: PREV_COLOR }]} />}>
           <div className="h-[330px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }} barGap={2} onClick={(s: any) => s?.activePayload?.[0] && onOpen(s.activePayload[0].payload.id)}>
@@ -134,12 +134,12 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
         </Panel>
       </div>
 
-      <Panel eyebrow={`RANKING · ${periodLabel(period).toUpperCase()}`} title="Tablero comparativo de unidades" right={<span className="text-[11px] text-muted-foreground">Clic en una fila para abrir la ficha</span>}>
+      <Panel eyebrow={`RANKING · ${periodLabel(period).toUpperCase()}`} title="Tablero comparativo de CDAs" right={<span className="text-[11px] text-muted-foreground">Clic en una fila para abrir la ficha</span>}>
         <div className="-mx-5 overflow-x-auto sm:-mx-6">
           <table className="w-full min-w-[880px] text-left text-xs">
             <thead>
               <tr className="border-y border-border bg-secondary/50 font-mono text-[10px] tracking-[0.08em] text-muted-foreground">
-                {["#", "Unidad", "Ingresos op.", "Part.", "Var. 24", "EBITDA", "Margen EBITDA", "Resultado", "Servicios", "Var. 24", "Ingreso / serv.", ""].map((h, i) => (
+                {["#", "CDA", "Ingresos op.", "Part.", "Var. 24", "EBITDA", "Margen EBITDA", "Resultado", "Servicios", "Var. 24", "Ingreso / serv.", ""].map((h, i) => (
                   <th key={i} className={`px-3 py-2.5 font-semibold ${i > 1 ? "text-right" : ""} ${i === 0 ? "pl-5 sm:pl-6" : ""}`}>{h}</th>
                 ))}
               </tr>
@@ -152,7 +152,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.e.color }} />
                       <div>
-                        <p className="font-bold">{r.e.short}</p>
+                        <p className="font-bold">{r.e.short}{r.e.estimated && <span className="text-[#c8202a]" title={r.e.estimated}> *</span>}</p>
                         <p className="text-[10px] text-muted-foreground">{r.e.city}</p>
                       </div>
                     </div>
@@ -178,7 +178,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
           </table>
         </div>
         <p className="mt-4 text-[11px] text-muted-foreground">
-          “—” = el Excel de origen no trae ese dato (Tecnosabana no reporta EBITDA ni servicios; el consolidado de Grupo Cardisel no trae hoja de servicios).
+          “—” = el Excel de origen no trae ese dato (Tecnosabana no reporta EBITDA ni cantidad de servicios). * ITAC Norte y Sur: las finanzas se reparten según el % de servicios de cada sede, porque el Excel de ITAC las trae juntas.
         </p>
       </Panel>
     </div>

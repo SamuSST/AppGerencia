@@ -104,6 +104,12 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
         </button>
       </div>
 
+      {e.estimated && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <b>Valores financieros estimados.</b> {e.estimated} Los servicios sí son los reales de la sede.
+        </div>
+      )}
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         <Kpi label="Ingresos operacionales" value={fmtValue(ing, "cop")} delta={variation(ing, metric(e, "ingresos", idx, "y24"))} accent={e.color} />
         <Kpi label="EBITDA" value={fmtValue(metric(e, "ebitda", idx), "cop")} delta={has("ebitda") ? variation(metric(e, "ebitda", idx), metric(e, "ebitda", idx, "y24")) : undefined} note={has("ebitda") ? `Margen ${fmtValue(metric(e, "margenEbitda", idx), "pct")}` : "No reportado en el Excel"} />

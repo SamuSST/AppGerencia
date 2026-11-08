@@ -7,6 +7,7 @@ import { CdaDetail } from "./gerencia/CdaDetail";
 import { Compare } from "./gerencia/Compare";
 import { DataLoad, Reports } from "./gerencia/Reports";
 import { PeriodPicker } from "./gerencia/ui";
+import logo from "../assets/9b6752e4935d81eb0c34c840e006a7ba641d4c8e.png";
 
 type View = "grupo" | "cda" | "comparar" | "informes" | "carga";
 type Session = { name: string; role: "general" | "cda"; cda?: string };
@@ -20,9 +21,9 @@ const NAV: { view: View; label: string; icon: typeof BarChart3 }[] = [
 ];
 
 const TITLES: Record<View, [string, string]> = {
-  grupo: ["Pulso del grupo", "Seis unidades de negocio, 2025 frente a 2024, con datos de los Mapa Tipo."],
+  grupo: ["Pulso del grupo", "Los seis CDAs del grupo, 2025 frente a 2024, con datos de los Mapa Tipo."],
   cda: ["Ficha individual", "Indicadores, estado de resultados y servicios de un CDA."],
-  comparar: ["Comparar CDAs", "Elige las unidades y el indicador; compáralas entre sí y contra el promedio."],
+  comparar: ["Comparar CDAs", "Elige los CDAs y el indicador; compáralos entre sí y contra el promedio del grupo."],
   informes: ["Informes", "Reportes listos para ver, descargar en CSV o imprimir en PDF."],
   carga: ["Carga de datos", "Archivos Excel que alimentan los tableros."],
 };
@@ -30,7 +31,7 @@ const TITLES: Record<View, [string, string]> = {
 function Login({ onEnter }: { onEnter: (s: Session) => void }) {
   const [role, setRole] = useState<"general" | "cda">("general");
   const [cda, setCda] = useState("unimilenio");
-  const managers = ENTITIES.filter((e) => e.id !== "grupo");
+  const managers = ENTITIES;
   return (
     <div className="grid min-h-screen lg:grid-cols-[1.1fr_1fr]">
       <div className="relative hidden flex-col justify-between overflow-hidden bg-[#0d2438] p-12 text-white lg:flex">
@@ -64,6 +65,7 @@ function Login({ onEnter }: { onEnter: (s: Session) => void }) {
             onEnter(role === "general" ? { name: "Gerencia general", role } : { name: `Gerente ${e.short}`, role, cda });
           }}
         >
+          <img src={logo} alt="Grupo Cardisel" className="mb-8 h-14 w-auto" />
           <h2 className="text-2xl font-extrabold tracking-tight">Iniciar sesión</h2>
           <p className="mb-6 mt-1 text-sm text-muted-foreground">Acceso para gerentes de los CDAs.</p>
           <label className="mb-1.5 block text-xs font-bold">Correo</label>
@@ -129,12 +131,9 @@ export default function App() {
     <div className="min-h-screen bg-background text-foreground">
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-[248px] flex-col bg-[#0d2438] text-white transition-transform print:hidden lg:translate-x-0 ${mobileNav ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="flex h-[76px] items-center justify-between border-b border-white/10 px-6">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded-[10px] bg-[#e42b35] font-mono text-[13px] font-bold">GC</div>
-            <div>
-              <p className="text-[15px] font-bold tracking-tight">GRUPO CARDISEL</p>
-              <p className="font-mono text-[9px] tracking-[0.2em] text-white/50">PORTAL DE GERENCIA</p>
-            </div>
+          <div className="flex min-w-0 flex-col gap-1">
+            <div className="rounded-lg bg-white px-2.5 py-1.5"><img src={logo} alt="Grupo Cardisel" className="h-7 w-auto" /></div>
+            <p className="font-mono text-[9px] tracking-[0.2em] text-white/50">PORTAL DE GERENCIA</p>
           </div>
           <button className="lg:hidden" onClick={() => setMobileNav(false)} aria-label="Cerrar menú"><X size={20} /></button>
         </div>

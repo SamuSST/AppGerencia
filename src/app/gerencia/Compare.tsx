@@ -59,7 +59,7 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
           <div className="flex flex-wrap items-center gap-3">
             <Segmented value={mode} onChange={setMode} options={[{ value: "total", label: "Total período" }, { value: "mensual", label: "Mes a mes" }]} />
             <button
-              onClick={() => downloadCSV(`comparativo-${mk}-${periodLabel(period).replace(/\s/g, "-")}.csv`, [["Unidad", "2025", "2024", "Variación %"], ...ranked.map((t) => [t.name, t.y25, t.y24, variation(t.y25, t.y24)])])}
+              onClick={() => downloadCSV(`comparativo-${mk}-${periodLabel(period).replace(/\s/g, "-")}.csv`, [["CDA", "2025", "2024", "Variación %"], ...ranked.map((t) => [t.name, t.y25, t.y24, variation(t.y25, t.y24)])])}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold hover:bg-secondary"
             >
               <Download size={13} /> CSV

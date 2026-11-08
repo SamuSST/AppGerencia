@@ -20,4 +20,5 @@ export type Entity = {
   source: string;
   fin: Partial<Record<FinKey, Series>>;
   services: Partial<Record<ServiceKey, Series>> | null;
+  estimated?: string;
 };

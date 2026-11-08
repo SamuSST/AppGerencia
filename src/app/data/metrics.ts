@@ -73,8 +73,11 @@ export function metric(e: Entity, k: MetricKey, idx: number[], y: Year = "y25"):
     case "rtm": return servSum(e, idx, y, (s) => s.startsWith("rtm"));
     case "preventivas": return servSum(e, idx, y, (s) => s.startsWith("prev"));
     case "ticket": {
-      const s = servSum(e, idx, y);
-      return s && ing ? ing / s : null;
+      // solo meses con servicios reportados, para no inflar el promedio
+      const withServ = idx.filter((i) => (servSum(e, [i], y) ?? 0) > 0);
+      const s = servSum(e, withServ, y);
+      const ingS = finSum(e, "ingOp", withServ, y);
+      return s && ingS ? ingS / s : null;
     }
   }
 }

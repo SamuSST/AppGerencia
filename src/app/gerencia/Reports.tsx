@@ -1,35 +1,33 @@
 import { useRef, useState } from "react";
-import { BarChart3, CalendarClock, CheckCircle2, Download, FileBarChart, FileSpreadsheet, GitCompare, Printer, UploadCloud, Wallet } from "lucide-react";
+import { BarChart3, CalendarClock, CheckCircle2, Download, FileBarChart, FileSpreadsheet, GitCompare, Printer, UploadCloud, PieChart } from "lucide-react";
 import { toast } from "sonner";
-import { ENTITIES, METRICS, MONTHS_LONG, byId, downloadCSV, finSum, fmtPct, fmtValue, metric, periodLabel, periodMonths, variation, type Period } from "../data/metrics";
+import { ENTITIES, METRICS, MONTHS_LONG, byId, downloadCSV, fmtPct, fmtValue, metric, periodLabel, periodMonths, variation, type Period } from "../data/metrics";
 import { Panel } from "./ui";
 
 type View = "grupo" | "cda" | "comparar";
 
 export function Reports({ period, go }: { period: Period; go: (v: View, id?: string) => void }) {
   const idx = periodMonths(period);
-  const grupo = byId("grupo");
-  const pptoReal = grupo.fin.ingOp!.ppto!.reduce((a, v, i) => (idx.includes(i) ? a + v : a), 0);
-  const real = finSum(grupo, "ingOp", idx) ?? 0;
-  const exec = pptoReal ? (real / pptoReal) * 100 : 0;
+  const totalIng = ENTITIES.reduce((acc, e) => acc + (metric(e, "ingresos", idx) ?? 0), 0);
+  const shares = ENTITIES.map((e) => ({ e, v: metric(e, "ingresos", idx) ?? 0, prev: metric(e, "ingresos", idx, "y24") ?? 0 })).sort((x, y) => y.v - x.v);
 
   const exportGroup = () =>
     downloadCSV(`comparativo-grupo-${periodLabel(period).replace(/\s/g, "-")}.csv`, [
-      ["Unidad", ...METRICS.flatMap((m) => [`${m.label} 2025`, `${m.label} 2024`])],
+      ["CDA", ...METRICS.flatMap((m) => [`${m.label} 2025`, `${m.label} 2024`])],
       ...ENTITIES.map((e) => [e.name, ...METRICS.flatMap((m) => [metric(e, m.key, idx), metric(e, m.key, idx, "y24")])]),
     ]);
 
   const exportServices = () =>
     downloadCSV("servicios-por-mes-2025.csv", [
-      ["Unidad", "Mes", "RTM 2025", "Preventivas 2025", "Total 2025", "Total 2024"],
+      ["CDA", "Mes", "RTM 2025", "Preventivas 2025", "Total 2025", "Total 2024"],
       ...ENTITIES.filter((e) => e.services).flatMap((e) => MONTHS_LONG.map((m, i) => [e.short, m, metric(e, "rtm", [i]), metric(e, "preventivas", [i]), metric(e, "servicios", [i]), metric(e, "servicios", [i], "y24")])),
     ]);
 
   const cards = [
-    { icon: BarChart3, title: "Informe ejecutivo del grupo", desc: "KPIs consolidados, ranking de unidades y evolución mensual.", open: () => go("grupo"), csv: exportGroup },
+    { icon: BarChart3, title: "Informe ejecutivo del grupo", desc: "KPIs consolidados, ranking de CDAs y evolución mensual.", open: () => go("grupo"), csv: exportGroup },
     { icon: FileBarChart, title: "Ficha mensual por CDA", desc: "Estado de resultados, estructura de gastos y servicios de un CDA.", open: () => go("cda", "unimilenio") },
     { icon: GitCompare, title: "Comparativo entre CDAs", desc: "Cualquier indicador, 2025 vs 2024, contra el promedio del grupo.", open: () => go("comparar"), csv: exportGroup },
-    { icon: FileSpreadsheet, title: "Servicios RTM y preventivas", desc: "Cantidad de servicios por mes y tipo (4 CDAs con hoja de servicios).", open: () => go("comparar"), csv: exportServices },
+    { icon: FileSpreadsheet, title: "Servicios RTM y preventivas", desc: "Cantidad de servicios por mes y tipo (5 CDAs; Tecnosabana no reporta servicios).", open: () => go("comparar"), csv: exportServices },
   ];
 
   return (
@@ -55,35 +53,34 @@ export function Reports({ period, go }: { period: Period; go: (v: View, id?: str
         ))}
       </div>
 
-      <Panel eyebrow="GRUPO CARDISEL · CONSOLIDADO" title="Ejecución presupuestal de ingresos" right={<Wallet size={18} className="text-[#e42b35]" />}>
-        <div className="grid gap-6 md:grid-cols-[220px_1fr] md:items-center">
-          <div>
-            <p className="text-[40px] font-extrabold leading-none tracking-[-0.04em]">{fmtValue(exec, "pct")}</p>
-            <p className="mt-2 text-xs text-muted-foreground">del presupuesto de ingresos operacionales ejecutado en {periodLabel(period).toLowerCase()}</p>
-          </div>
-          <div className="space-y-3 text-xs">
-            {[{ l: "Ejecutado 2025", v: real, c: "#0d2438" }, { l: "Presupuesto 2025", v: pptoReal, c: "#a9b7c1" }].map((r) => (
-              <div key={r.l} className="grid grid-cols-[120px_1fr_110px] items-center gap-3">
-                <span className="font-semibold">{r.l}</span>
-                <div className="h-3 overflow-hidden rounded-full bg-secondary"><div className="h-full rounded-full" style={{ width: `${(r.v / Math.max(real, pptoReal)) * 100}%`, background: r.c }} /></div>
-                <span className="text-right font-mono">{fmtValue(r.v, "cop")}</span>
-              </div>
-            ))}
-            <p className="text-[11px] text-muted-foreground">Diferencia: {fmtValue(real - pptoReal, "cop")} ({fmtPct(variation(real, pptoReal))}). Solo el informe consolidado trae presupuesto separado del real; en los Mapa Tipo de cada CDA la columna de presupuesto repite el valor ejecutado.</p>
-          </div>
+      <Panel eyebrow={`GRUPO CARDISEL · ${periodLabel(period).toUpperCase()}`} title="Participación de cada CDA en los ingresos del grupo" right={<span className="font-mono text-[11px] text-muted-foreground">Total {fmtValue(totalIng, "cop")}</span>}>
+        <div className="mb-5 flex h-4 overflow-hidden rounded-full">
+          {shares.map(({ e, v }) => <div key={e.id} title={`${e.short}: ${fmtValue((v / totalIng) * 100, "pct")}`} style={{ width: `${(v / totalIng) * 100}%`, background: e.color }} className="border-r-2 border-[#fffefa] last:border-r-0" />)}
         </div>
+        <div className="grid gap-x-8 gap-y-2.5 text-xs sm:grid-cols-2">
+          {shares.map(({ e, v, prev }) => (
+            <div key={e.id} className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
+              <span className="flex items-center gap-2 font-semibold"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: e.color }} />{e.short}{e.estimated && <span className="text-[#c8202a]">*</span>}</span>
+              <span className="flex items-center gap-3 font-mono">
+                {fmtValue(v, "cop")}
+                <span className="w-12 text-right text-muted-foreground">{fmtValue((v / totalIng) * 100, "pct")}</span>
+                <span className="w-14 text-right">{fmtPct(variation(v, prev))}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+        <p className="mt-4 text-[11px] text-muted-foreground">Columnas: ingresos operacionales, participación en el grupo y variación frente a 2024. * Estimado por % de servicios.</p>
       </Panel>
     </div>
   );
 }
 
 const SOURCES = [
-  { id: "la37", file: "Mapa_Tipo_CDA_37_ENERO_A_DICIEMBRE_de__2025_final.xlsx", sheets: "Año 2025 · INGRESOS SERV" },
-  { id: "inteco", file: "MAPA_TIPO__A_DICIEMBRE__2025_INTECO.xlsx", sheets: "Año 2025 · CANT SERV ING" },
-  { id: "itac", file: "INFORME_Mapatipo__ITAC_A_DICIEMBRE_2025.xlsx", sheets: "AÑO 2025 · SERVICIO Q" },
-  { id: "tecnosabana", file: "MAPATIPO_TECNOSABANA__A_O_2024-2025.xlsx", sheets: "AÑO 2024-2025" },
-  { id: "unimilenio", file: "Mapa_Tipo_Unimilenio_A_Diciembre_2025.xlsx", sheets: "AÑO 2025 · CANT ING SERVICIOS" },
-  { id: "grupo", file: "Informe__Preliminar_Diciembre_2024-2025.xlsx", sheets: "Año 2025-2024 Consolidado" },
+  { ids: ["la37"], file: "Mapa_Tipo_CDA_37_ENERO_A_DICIEMBRE_de__2025_final.xlsx", sheets: "Año 2025 · INGRESOS SERV" },
+  { ids: ["inteco"], file: "MAPA_TIPO__A_DICIEMBRE__2025_INTECO.xlsx", sheets: "Año 2025 · CANT SERV ING" },
+  { ids: ["itac-norte", "itac-sur"], file: "INFORME_Mapatipo__ITAC_A_DICIEMBRE_2025.xlsx", sheets: "AÑO 2025 · SERVICIO Q (por sede)" },
+  { ids: ["tecnosabana"], file: "MAPATIPO_TECNOSABANA__A_O_2024-2025.xlsx", sheets: "AÑO 2024-2025" },
+  { ids: ["unimilenio"], file: "Mapa_Tipo_Unimilenio_A_Diciembre_2025.xlsx", sheets: "AÑO 2025 · CANT ING SERVICIOS" },
 ];
 
 export function DataLoad() {
@@ -110,7 +107,7 @@ export function DataLoad() {
         >
           <UploadCloud size={28} className="text-[#e42b35]" />
           <p className="text-sm font-bold">Arrastra aquí el Excel o haz clic para buscarlo</p>
-          <p className="text-xs text-muted-foreground">.xlsx · Mapa Tipo de cada CDA o Informe preliminar consolidado</p>
+          <p className="text-xs text-muted-foreground">.xlsx · Mapa Tipo mensual de cada CDA</p>
           <input ref={input} type="file" accept=".xlsx,.xls" multiple hidden onChange={(e) => receive(e.target.files)} />
         </div>
         {queue.length > 0 && (
@@ -139,10 +136,11 @@ export function DataLoad() {
             </thead>
             <tbody>
               {SOURCES.map((s) => {
-                const e = byId(s.id);
                 return (
-                  <tr key={s.id} className="border-b border-border/60">
-                    <td className="py-3 pl-5 sm:pl-6"><span className="inline-flex items-center gap-2 font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: e.color }} />{e.short}</span></td>
+                  <tr key={s.file} className="border-b border-border/60">
+                    <td className="py-3 pl-5 sm:pl-6">
+                      {s.ids.map((id) => { const e = byId(id); return <span key={id} className="mr-3 inline-flex items-center gap-2 font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: e.color }} />{e.short}</span>; })}
+                    </td>
                     <td className="px-3 font-mono text-[11px]">{s.file}</td>
                     <td className="px-3 text-muted-foreground">{s.sheets}</td>
                     <td className="px-3">Dic 2025</td>
