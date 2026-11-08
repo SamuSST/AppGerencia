@@ -1,11 +1,23 @@
+# Portal de Gerencia · Grupo Cardisel
 
-  # App para seguimiento de ventas
+Prototipo de aplicación web para los gerentes de los CDAs del Grupo Cardisel: informes y gráficos por CDA y comparativos entre los seis CDAs del grupo (La 37, Inteco, ITAC Norte, ITAC Sur, Tecnosabana y Unimilenio), con datos reales de los Mapa Tipo 2024–2025.
 
-  This is a code bundle for App para seguimiento de ventas. The original project is available at https://www.figma.com/design/HjFwvIicaUVS1j3XsBjVjI/App-para-seguimiento-de-ventas.
+**Ver en línea:** https://samusst.github.io/AppGerencia/
 
-  ## Running the code
+## Pantallas
+- **Resumen del grupo:** totales, evolución mensual y ranking de CDAs.
+- **Ficha por CDA:** ingresos, EBITDA, resultado, estructura de gastos, servicios y estado de resultados.
+- **Comparar CDAs:** cualquier indicador, 2025 vs 2024, contra el promedio del grupo.
+- **Informes:** exportación a CSV / PDF y participación de cada CDA.
+- **Carga de datos:** carga de Excel (simulada en este prototipo).
 
-  Run `npm i` to install the dependencies.
+## Desarrollo
+```bash
+npm install
+npm run dev
+```
 
-  Run `npm run dev` to start the development server.
-  
+Cada push a `main` se publica automáticamente en GitHub Pages (`.github/workflows/deploy.yml`).
+
+## Datos
+Los datos están en `src/app/data/cardisel.ts`, extraídos de los Mapa Tipo de cada CDA. Las finanzas de ITAC vienen juntas en el Excel y se reparten entre Norte y Sur según el % de servicios de cada sede (se marcan como estimadas en la app).
