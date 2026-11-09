@@ -9,7 +9,7 @@ type View = "grupo" | "cda" | "comparar";
 export function Reports({ period, go }: { period: Period; go: (v: View, id?: string) => void }) {
   const idx = periodMonths(period);
   const totalIng = ENTITIES.reduce((acc, e) => acc + (metric(e, "ingresos", idx) ?? 0), 0);
-  const shares = ENTITIES.filter((e) => !e.pending).map((e) => ({ e, v: metric(e, "ingresos", idx) ?? 0, prev: metric(e, "ingresos", idx, "prev") ?? 0 })).sort((x, y) => y.v - x.v);
+  const shares = ENTITIES.filter((e) => e.fin.ingOp).map((e) => ({ e, v: metric(e, "ingresos", idx) ?? 0, prev: metric(e, "ingresos", idx, "prev") ?? 0 })).sort((x, y) => y.v - x.v);
 
   const exportGroup = () =>
     downloadCSV(`comparativo-grupo-${periodLabel(period).replace(/\s/g, "-")}.csv`, [
@@ -133,7 +133,7 @@ export function DataLoad() {
               </tr>
             </thead>
             <tbody>
-              {[...sources(), ...ENTITIES.filter((e) => e.pending).map((e) => ({ file: "", ids: [e.id] }))].map((s) => {
+              {[...sources(), ...ENTITIES.filter((e) => e.pending && !e.sources.length).map((e) => ({ file: "", ids: [e.id] }))].map((s) => {
                 return (
                   <tr key={s.file} className="border-b border-border/60">
                     <td className="py-3 pl-5 sm:pl-6">
@@ -142,10 +142,10 @@ export function DataLoad() {
                     <td className="px-3 font-mono text-[11px]">{s.file || <span className="font-sans text-muted-foreground">—</span>}</td>
                     <td className="px-3">{DS.label}</td>
                     <td className="px-3 pr-5 sm:pr-6">
-                      {s.file ? (
+                      {s.file && !s.ids.some((id) => byId(id).pending) ? (
                         <span className="inline-flex items-center gap-1 font-semibold text-emerald-800"><CheckCircle2 size={13} /> Procesado</span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 font-semibold text-amber-700"><CircleDashed size={13} /> Pendiente</span>
+                        <span className="inline-flex items-center gap-1 font-semibold text-amber-700"><CircleDashed size={13} /> {s.file ? "Parcial" : "Pendiente"}</span>
                       )}
                     </td>
                   </tr>

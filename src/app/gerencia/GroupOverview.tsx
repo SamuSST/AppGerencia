@@ -192,7 +192,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.e.color }} />
                       <div>
-                        <p className="font-bold">{r.e.short}{r.e.estimated && <span className="text-[#c8202a]" title={r.e.estimated}> *</span>}{r.e.pending && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-800">Pendiente</span>}</p>
+                        <p className="font-bold">{r.e.short}{r.e.estimated && <span className="text-[#c8202a]" title={r.e.estimated}> *</span>}{r.e.pending && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-800" title={r.e.pending}>{r.e.fin.ingOp ? "Parcial" : "Pendiente"}</span>}</p>
                         <p className="text-[10px] text-muted-foreground">{r.e.city}</p>
                       </div>
                     </div>

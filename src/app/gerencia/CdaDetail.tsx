@@ -106,7 +106,7 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
 
       {e.pending && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
-          <b>Información pendiente.</b> {e.pending} Cuando llegue el archivo se carga en “Carga de datos”.{e.target?.ingOp ? ` Su meta de referencia (ingresos de todo ${PREV}) es ${fmtValue(e.target.ingOp, "cop")}.` : ""}
+          <b>{e.fin.ingOp ? "Información parcial." : "Información pendiente."}</b> {e.pending} Cuando llegue el archivo se carga en “Carga de datos”.{e.target?.ingOp ? ` Su meta de referencia (ingresos de todo ${PREV}) es ${fmtValue(e.target.ingOp, "cop")}.` : ""}
         </div>
       )}
 
@@ -167,6 +167,9 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
         </Panel>
 
         <Panel eyebrow="RENTABILIDAD" title={has("ebitda") ? `EBITDA y resultado mensual ${CUR}` : `Resultado mensual ${CUR}`} right={<Legend items={[...(has("ebitda") ? [{ label: "EBITDA", color: "#0d2438" }] : []), { label: "Resultado", color: "#df9d37" }]} />}>
+          {!has("resultado") ? (
+            <Missing>Aún no hay estado de resultados de {CUR} para este CDA.<br />Se completa al cargar su Mapa Tipo.</Missing>
+          ) : (
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthly} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barGap={2}>
@@ -193,6 +196,7 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
               </BarChart>
             </ResponsiveContainer>
           </div>
+          )}
         </Panel>
 
         <Panel eyebrow={`GASTOS · ${periodLabel(period).toUpperCase()}`} title="Estructura de gastos operacionales" right={<span className="font-mono text-[11px] text-muted-foreground">Total {fmtValue(expTotal, "cop")}</span>}>
