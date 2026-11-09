@@ -21,7 +21,7 @@ const NAV: { view: View; label: string; icon: typeof BarChart3 }[] = [
 ];
 
 const titles = (): Record<View, [string, string]> => ({
-  grupo: ["Pulso del grupo", `Los seis CDAs del grupo: ${DS.label.replace(" · ", ", ")}, con datos de los Mapa Tipo.`],
+  grupo: ["Pulso del grupo", `Los ${ENTITIES.length} CDAs del grupo: ${DS.label.replace(" · ", ", ")}, con datos de los Mapa Tipo.`],
   cda: ["Ficha individual", "Indicadores, estado de resultados y servicios de un CDA."],
   comparar: ["Comparar CDAs", "Elige los CDAs y el indicador; compáralos entre sí y contra el promedio del grupo."],
   informes: ["Informes", "Reportes listos para ver, descargar en CSV o imprimir en PDF."],
@@ -44,7 +44,7 @@ function Login({ onEnter }: { onEnter: (s: Session) => void }) {
         </div>
         <div>
           <p className="mb-4 font-mono text-[11px] tracking-[0.18em] text-[#ff8a90]">INFORME A SEPTIEMBRE 2026</p>
-          <h1 className="max-w-md text-[44px] font-extrabold leading-[1.05] tracking-[-0.04em]">Los seis CDAs del grupo, en un solo tablero.</h1>
+          <h1 className="max-w-md text-[44px] font-extrabold leading-[1.05] tracking-[-0.04em]">Todos los CDAs del grupo, en un solo tablero.</h1>
           <div className="mt-8 flex flex-wrap gap-2">
             {ENTITIES.map((e) => (
               <span key={e.id} className="inline-flex items-center gap-2 rounded-full border border-white/15 px-3 py-1.5 text-xs text-white/80">
