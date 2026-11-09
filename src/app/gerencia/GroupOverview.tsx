@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChevronRight } from "lucide-react";
 import { ENTITIES, MONTHS, MONTHS_LONG, fmtAxis, fmtPct, fmtValue, metric, metricDef, periodLabel, periodMonths, variation, type MetricKey, type Period, CUR, PREV, DS, NM } from "../data/metrics";
-import { ChartTip, Delta, GRID, Kpi, Legend, Panel, PREV_COLOR, Segmented, axisTick } from "./ui";
+import { ChartTip, Delta, GRID, Kpi, Legend, Panel, PREV_COLOR, Segmented, SemaforoBadge, SemaforoLegend, axisTick, semaforo } from "./ui";
 
 const TREND_METRICS: MetricKey[] = ["ingresos", "ebitda", "resultado", "servicios"];
 
@@ -58,7 +58,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
       <div className={`grid gap-3 sm:grid-cols-2 ${hasTarget ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
         <Kpi label="Ingresos operacionales" value={fmtValue(totalIng, "cop")} delta={variation(totalIng, total("ingresos", "prev"))} note={note(withIng, "datos: ")} accent="#e42b35" />
         {hasTarget && (
-          <Kpi label={`Avance vs ${DS.targetLabel?.toLowerCase()}`} value={fmtValue((total("ingresos", "cur", withIng) / targetIng) * 100, "pct")} note={`De ${fmtValue(targetIng, "cop")} facturados en todo ${PREV} · ritmo esperado a ${MONTHS_LONG[NM - 1].toLowerCase()}: ${fmtValue(pace, "pct")}`} accent="#1baf7a" />
+          <Kpi label={`Avance vs ${DS.targetLabel?.toLowerCase()}`} value={fmtValue((total("ingresos", "cur", withIng) / targetIng) * 100, "pct")} note={`De ${fmtValue(targetIng, "cop")} facturados en todo ${PREV} · ritmo esperado a ${MONTHS_LONG[NM - 1].toLowerCase()}: ${fmtValue(pace, "pct")}`} accent={semaforo((total("ingresos", "cur", withIng) / targetIng) * 100).color} />
         )}
         <Kpi label="EBITDA" value={fmtValue(total("ebitda", "cur", withEbitda), "cop")} delta={variation(total("ebitda", "cur", withEbitda), total("ebitda", "prev", withEbitda))} note={note(withEbitda)} accent="#0d2438" />
         <Kpi label="Resultado antes de impuestos" value={fmtValue(total("resultado", "cur"), "cop")} delta={variation(total("resultado", "cur"), total("resultado", "prev"))} note={`Margen neto ${fmtValue((total("resultado", "cur") / totalIng) * 100, "pct")}`} accent="#df9d37" />
@@ -148,29 +148,35 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
       </div>
 
       {hasTarget && (
-        <Panel eyebrow={`CUMPLIMIENTO · ${periodLabel({ kind: "year" }).toUpperCase()} VS ${DS.targetLabel?.toUpperCase()}`} title={`¿Qué porcentaje de lo facturado en ${PREV} lleva cada CDA?`} right={<Legend items={[{ label: `Ritmo esperado (${fmtValue(pace, "pct")})`, color: "#0d2438", dashed: true }]} />}>
+        <Panel eyebrow={`CUMPLIMIENTO · ${periodLabel({ kind: "year" }).toUpperCase()} VS ${DS.targetLabel?.toUpperCase()}`} title={`¿Qué porcentaje de lo facturado en ${PREV} lleva cada CDA?`} right={<SemaforoLegend />}>
           <div className="space-y-3">
-            {avanceRows.map(({ e, v, t, ing }) => (
-              <div key={e.id} className="grid grid-cols-[100px_1fr_70px] items-center gap-3 text-xs sm:grid-cols-[130px_1fr_300px]">
-                <button onClick={() => onOpen(e.id)} className="flex items-center gap-2 text-left font-bold hover:underline">
-                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.color }} />{e.short}{e.target?.estimated && <span className="text-[#c8202a]">*</span>}
-                </button>
-                {v == null ? (
-                  <span className="rounded-md border border-dashed border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">{e.pending ?? "Sin dato"}</span>
-                ) : (
-                  <div className="relative h-3 rounded-full bg-secondary">
-                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, v)}%`, background: e.color }} />
-                    <span className="absolute -top-1 bottom-[-4px] border-l-2 border-dashed border-[#0d2438]" style={{ left: `${pace}%` }} />
-                  </div>
-                )}
-                <span className="flex items-center justify-end gap-3 font-mono">
-                  <span className="hidden whitespace-nowrap text-muted-foreground sm:inline">{fmtValue(ing, "cop")} / {fmtValue(t, "cop")}</span>
-                  <span className={`w-14 text-right font-semibold ${v != null && v >= pace ? "text-emerald-800" : v != null ? "text-red-700" : ""}`}>{fmtValue(v, "pct")}</span>
-                </span>
-              </div>
-            ))}
+            {avanceRows.map(({ e, v, t, ing }) => {
+              const sm = v == null ? null : semaforo(v);
+              return (
+                <div key={e.id} className="grid grid-cols-[96px_1fr_64px] items-center gap-3 text-xs sm:grid-cols-[140px_1fr_70px_110px]">
+                  <button onClick={() => onOpen(e.id)} className="flex min-w-0 items-center gap-2 text-left text-xs font-bold hover:underline" title={e.name}>
+                    <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.color }} />
+                    <span className="truncate">{e.short}</span>
+                    {e.target?.estimated && <span className="shrink-0 text-[#c8202a]">*</span>}
+                  </button>
+                  {v == null ? (
+                    <span className="rounded-md border border-dashed border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">{e.pending ?? "Sin dato"}</span>
+                  ) : (
+                    <div title={`${fmtValue(v, "pct")} · ${sm!.label}`}>
+                      <div className="relative h-3 rounded-full bg-secondary">
+                        <div className="h-full rounded-full" style={{ width: `${Math.min(100, v)}%`, background: sm!.color }} />
+                        {[70, 90].map((m) => <span key={m} className="absolute -top-1 bottom-[-4px] border-l border-dashed border-[#0d2438]/50" style={{ left: `${m}%` }} />)}
+                      </div>
+                      <p className="mt-1 hidden font-mono text-[10px] text-muted-foreground sm:block">{fmtValue(ing, "cop")} de {fmtValue(t, "cop")}</p>
+                    </div>
+                  )}
+                  <span className="text-right font-mono font-semibold">{fmtValue(v, "pct")}</span>
+                  <span className="hidden justify-end whitespace-nowrap sm:flex"><SemaforoBadge value={v} /></span>
+                </div>
+              );
+            })}
           </div>
-          <p className="mt-4 text-[11px] text-muted-foreground">Ingresos operacionales {periodLabel({ kind: "year" }).toLowerCase()} ÷ ingresos operacionales de todo {PREV} (cierre a diciembre). Verde = va por encima del ritmo esperado ({NM} de 12 meses).</p>
+          <p className="mt-4 text-[11px] text-muted-foreground">Ingresos operacionales {periodLabel({ kind: "year" }).toLowerCase()} ÷ ingresos operacionales de todo {PREV} (cierre a diciembre). Las líneas punteadas marcan 70% y 90%. * Valor estimado.</p>
         </Panel>
       )}
 

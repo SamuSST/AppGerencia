@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { ArrowDownRight, ArrowUpRight, Info, Minus } from "lucide-react";
+import { AlertTriangle, ArrowDownRight, ArrowUpRight, CheckCircle2, Info, Minus, XCircle } from "lucide-react";
 import { MONTHS_LONG, NM, PREV, type Period } from "../data/metrics";
 
 export function Panel({ eyebrow, title, right, children, className = "" }: { eyebrow?: string; title?: string; right?: ReactNode; children: ReactNode; className?: string }) {
@@ -143,3 +143,34 @@ export function ChartTip({ title, rows }: { title: string; rows: TipRow[] }) {
 export const axisTick = { fill: "#6d7981", fontSize: 10, fontFamily: "DM Mono" };
 export const GRID = "#e6e2dc";
 export const PREV_COLOR = "#a9b7c1";
+
+/** Semáforo de cumplimiento: verde ≥ 90 %, amarillo 70–89,9 %, rojo < 70 %. */
+export const SEMAFORO = [
+  { min: 90, label: "Cumple", color: "#16a34a", text: "text-emerald-800", bg: "bg-emerald-50", Icon: CheckCircle2, range: "≥ 90%" },
+  { min: 70, label: "En riesgo", color: "#eab308", text: "text-amber-800", bg: "bg-amber-50", Icon: AlertTriangle, range: "70% – 89,9%" },
+  { min: -Infinity, label: "Crítico", color: "#dc2626", text: "text-red-800", bg: "bg-red-50", Icon: XCircle, range: "< 70%" },
+] as const;
+export const semaforo = (v: number) => SEMAFORO.find((s) => v >= s.min)!;
+
+export function SemaforoBadge({ value }: { value: number | null }) {
+  if (value == null) return null;
+  const s = semaforo(value);
+  return (
+    <span className={`inline-flex items-center gap-1 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-bold ${s.bg} ${s.text}`}>
+      <s.Icon size={12} /> {s.label}
+    </span>
+  );
+}
+
+export function SemaforoLegend() {
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-muted-foreground">
+      {SEMAFORO.map((s) => (
+        <span key={s.label} className="inline-flex items-center gap-1.5">
+          <s.Icon size={13} style={{ color: s.color }} />
+          <b className="text-foreground">{s.label}</b> {s.range}
+        </span>
+      ))}
+    </div>
+  );
+}
