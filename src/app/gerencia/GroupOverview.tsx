@@ -221,6 +221,37 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              {(() => {
+                const sum = (k: MetricKey, y: "cur" | "prev", ids?: string[]) =>
+                  ENTITIES.filter((e) => (!ids || ids.includes(e.id)) && metric(e, k, idx, y) != null).reduce((a, e) => a + (metric(e, k, idx, y) ?? 0), 0);
+                const ing = sum("ingresos", "cur");
+                const eb = sum("ebitda", "cur", withEbitda);
+                const ingEb = sum("ingresos", "cur", withEbitda);
+                const res = sum("resultado", "cur");
+                const serv = sum("servicios", "cur", withServ);
+                const ingServ = sum("ingresos", "cur", withServ);
+                return (
+                  <tr className="border-t-2 border-[#0d2438] bg-[#0d2438]/[0.04] font-bold">
+                    <td className="py-3.5 pl-5 pr-3 sm:pl-6" />
+                    <td className="px-3 py-3.5">
+                      <p className="font-extrabold">Total grupo</p>
+                      <p className="text-[10px] font-normal text-muted-foreground">{ENTITIES.length} CDAs</p>
+                    </td>
+                    <td className="px-3 text-right font-mono">{fmtValue(ing, "cop")}</td>
+                    <td className="px-3 text-right font-mono text-[10px]">100%</td>
+                    <td className="px-3 text-right"><Delta value={variation(ing, sum("ingresos", "prev"))} suffix="" /></td>
+                    <td className="px-3 text-right font-mono">{fmtValue(eb, "cop")}</td>
+                    <td className="px-3 text-right font-mono">{ingEb ? fmtValue((eb / ingEb) * 100, "pct") : "—"}</td>
+                    <td className={`px-3 text-right font-mono ${res < 0 ? "text-red-700" : ""}`}>{fmtValue(res, "cop")}</td>
+                    <td className="px-3 text-right font-mono">{fmtValue(serv, "count")}</td>
+                    <td className="px-3 text-right"><Delta value={variation(serv, sum("servicios", "prev", withServ))} suffix="" /></td>
+                    <td className="px-3 text-right font-mono">{serv ? fmtValue(ingServ / serv, "cop", false) : "—"}</td>
+                    <td className="pr-5 sm:pr-6" />
+                  </tr>
+                );
+              })()}
+            </tfoot>
           </table>
         </div>
         <p className="mt-4 text-[11px] text-muted-foreground">
