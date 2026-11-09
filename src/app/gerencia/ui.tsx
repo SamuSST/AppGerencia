@@ -22,7 +22,7 @@ export function Panel({ eyebrow, title, right, children, className = "" }: { eye
 export function Delta({ value, invert = false, suffix }: { value: number | null; invert?: boolean; suffix?: string }) {
   suffix = suffix ?? `vs ${PREV}`;
   if (value == null || !isFinite(value))
-    return <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><Minus size={12} /> sin comparativo</span>;
+    return <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><Minus size={12} /> sin base comparable</span>;
   const up = value >= 0;
   const good = invert ? !up : up;
   return (

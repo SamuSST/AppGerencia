@@ -124,8 +124,16 @@ export function metric(e: Entity, k: MetricKey, idx: number[], y: Year = "cur"):
   }
 }
 
-export const variation = (cur: number | null, prev: number | null) =>
-  cur == null || prev == null || prev === 0 ? null : ((cur - prev) / Math.abs(prev)) * 100;
+/**
+ * Variación porcentual. Si la base es prácticamente cero (menos del 1% del valor actual),
+ * el porcentaje no tiene sentido (p. ej. $2.109 → $76 millones = +3.624.388%), así que
+ * se devuelve null y la interfaz muestra "sin base comparable".
+ */
+export const variation = (cur: number | null, prev: number | null) => {
+  if (cur == null || prev == null || prev === 0) return null;
+  if (Math.abs(prev) < Math.abs(cur) * 0.01) return null;
+  return ((cur - prev) / Math.abs(prev)) * 100;
+};
 
 const nf = (d = 0) => new Intl.NumberFormat("es-CO", { maximumFractionDigits: d, minimumFractionDigits: d });
 
