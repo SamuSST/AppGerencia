@@ -54,14 +54,18 @@ export const servSum = (e: Entity, idx: number[], y: Year = "cur", filter: (k: S
 };
 
 export type MetricKey =
-  | "ingresos" | "gastos" | "ebitda" | "resultado" | "margenEbitda" | "margenNeto"
+  | "ingresos" | "ingNoOp" | "ingTotal" | "gastos" | "gastNoOp" | "gastTotal" | "ebitda" | "resultado" | "margenEbitda" | "margenNeto"
   | "servicios" | "rtm" | "preventivas" | "ticket" | "avance" | "avanceServ";
 
 export type Unit = "cop" | "pct" | "count";
 
 export const METRICS: { key: MetricKey; label: string; unit: Unit; hint: string }[] = [
   { key: "ingresos", label: "Ingresos operacionales", unit: "cop", hint: "Cuenta 41" },
+  { key: "ingNoOp", label: "Ingresos no operacionales", unit: "cop", hint: "Cuenta 42" },
+  { key: "ingTotal", label: "Total ingresos", unit: "cop", hint: "Operacionales + no operacionales" },
   { key: "gastos", label: "Gastos operacionales", unit: "cop", hint: "Total gastos operacionales" },
+  { key: "gastNoOp", label: "Gastos no operacionales", unit: "cop", hint: "Financieros y otros no operacionales" },
+  { key: "gastTotal", label: "Total gastos", unit: "cop", hint: "Operacionales + no operacionales" },
   { key: "ebitda", label: "EBITDA", unit: "cop", hint: "Total EBITDA del Mapa Tipo" },
   { key: "resultado", label: "Resultado antes de impuestos", unit: "cop", hint: "Resultado neto antes de impuestos" },
   { key: "margenEbitda", label: "Margen EBITDA", unit: "pct", hint: "EBITDA / ingresos operacionales" },
@@ -83,7 +87,11 @@ export function metric(e: Entity, k: MetricKey, idx: number[], y: Year = "cur"):
   const ing = finSum(e, "ingOp", idx, y);
   switch (k) {
     case "ingresos": return ing;
+    case "ingNoOp": return finSum(e, "ingNoOp", idx, y);
+    case "ingTotal": return finSum(e, "ingTotal", idx, y);
     case "gastos": return finSum(e, "gastOp", idx, y);
+    case "gastNoOp": return finSum(e, "noOp", idx, y);
+    case "gastTotal": return finSum(e, "gastTotal", idx, y);
     case "ebitda": return finSum(e, "ebitda", idx, y);
     case "resultado": return finSum(e, "resultado", idx, y);
     case "margenEbitda": {
@@ -126,8 +134,7 @@ export const fmtCOP = (v: number | null, compact = true) => {
   const sign = v < 0 ? "-" : "";
   const a = Math.abs(v);
   if (!compact) return `${sign}$${nf().format(Math.round(a))}`;
-  if (a >= 1e9) return `${sign}$${nf(2).format(a / 1e9)} mil M`;
-  if (a >= 1e6) return `${sign}$${nf(0).format(a / 1e6)} M`;
+  if (a >= 1e6) return `${sign}$${nf(0).format(a / 1e6)} millones`;
   return `${sign}$${nf().format(Math.round(a))}`;
 };
 
@@ -142,8 +149,7 @@ export const fmtAxis = (v: number, unit: Unit) => {
   if (unit === "pct") return `${Math.round(v)}%`;
   if (unit === "count") return v >= 1000 ? `${nf(1).format(v / 1000)}k` : `${v}`;
   const a = Math.abs(v);
-  if (a >= 1e9) return `${nf(1).format(v / 1e9)}MM`;
-  if (a >= 1e6) return `${Math.round(v / 1e6)}M`;
+  if (a >= 1e6) return `${nf(0).format(v / 1e6)}M`;
   return `${Math.round(v / 1e3)}k`;
 };
 

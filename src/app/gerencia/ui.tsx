@@ -41,7 +41,16 @@ export function Kpi({ label, value, delta, invert, note, accent }: { label: stri
     <div className="relative overflow-hidden rounded-xl border border-border bg-card p-5 shadow-[0_2px_12px_rgba(13,36,56,.035)]">
       {accent && <span className="absolute inset-y-0 left-0 w-1" style={{ background: accent }} />}
       <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-foreground">{label}</p>
-      <p className="mb-2 text-[26px] font-extrabold leading-none tracking-[-0.035em]">{value}</p>
+      <p className="mb-2 whitespace-nowrap text-[26px] font-extrabold leading-none tracking-[-0.035em]">
+        {value.endsWith(" millones") ? (
+          <>
+            {value.slice(0, -9)}
+            <span className="ml-1 text-[13px] font-bold tracking-normal text-muted-foreground">millones</span>
+          </>
+        ) : (
+          value
+        )}
+      </p>
       {delta !== undefined && <Delta value={delta} invert={invert} />}
       {note && <p className="mt-2 text-[11px] text-muted-foreground">{note}</p>}
     </div>

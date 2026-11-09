@@ -144,7 +144,7 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
                     <td className="px-3"><span className="inline-flex items-center gap-2 font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: t.color }} />{t.name}</span></td>
                     <td className="px-3 text-right font-mono font-semibold">{fmtValue(t.cur, def.unit)}</td>
                     <td className="px-3 text-right font-mono text-muted-foreground">{fmtValue(t.prev, def.unit)}</td>
-                    <td className="px-3 text-right">{def.unit === "pct" ? <span className="font-mono">{t.prev == null ? "—" : pp(t.cur - t.prev)}</span> : <Delta value={variation(t.cur, t.prev)} invert={mk === "gastos"} suffix="" />}</td>
+                    <td className="px-3 text-right">{def.unit === "pct" ? <span className="font-mono">{t.prev == null ? "—" : pp(t.cur - t.prev)}</span> : <Delta value={variation(t.cur, t.prev)} invert={mk.startsWith("gast")} suffix="" />}</td>
                     <td className="px-3 pr-5 text-right font-mono sm:pr-6">{def.unit === "pct" ? pp(t.cur - avg) : fmtPct(variation(t.cur, avg))}</td>
                   </tr>
                 ))}
