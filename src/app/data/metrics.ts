@@ -1,41 +1,61 @@
-import { ENTITIES } from "./cardisel";
-import type { Entity, FinKey, ServiceKey } from "./types";
+import { DATASETS } from "./cardisel";
+import type { Dataset, Entity, FinKey, ServiceKey } from "./types";
 
-export { ENTITIES };
-export type Year = "y25" | "y24";
+export { DATASETS };
+export type Year = "cur" | "prev";
 
-export const MONTHS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
+const ALL_MONTHS = ["ENE", "FEB", "MAR", "ABR", "MAY", "JUN", "JUL", "AGO", "SEP", "OCT", "NOV", "DIC"];
 export const MONTHS_LONG = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+// Conjunto de datos activo. Son "live bindings": al cambiar de conjunto con setDataset,
+// todos los módulos que los importan ven los valores nuevos.
+export let DS: Dataset = DATASETS[0];
+export let ENTITIES: Entity[] = DS.entities;
+export let CUR = DS.cur;
+export let PREV = DS.prev;
+export let NM = DS.months;
+export let MONTHS = ALL_MONTHS.slice(0, NM);
+
+export function setDataset(id: string) {
+  DS = DATASETS.find((d) => d.id === id) ?? DATASETS[0];
+  ENTITIES = DS.entities;
+  CUR = DS.cur;
+  PREV = DS.prev;
+  NM = DS.months;
+  MONTHS = ALL_MONTHS.slice(0, NM);
+}
 
 export type Period = { kind: "year" } | { kind: "quarter"; q: number } | { kind: "month"; m: number };
 
 export const periodMonths = (p: Period): number[] => {
-  if (p.kind === "year") return [...Array(12).keys()];
+  if (p.kind === "year") return [...Array(NM).keys()];
   if (p.kind === "quarter") return [0, 1, 2].map((i) => (p.q - 1) * 3 + i);
   return [p.m];
 };
 
 export const periodLabel = (p: Period) =>
-  p.kind === "year" ? "Año 2025" : p.kind === "quarter" ? `T${p.q} 2025` : `${MONTHS_LONG[p.m]} 2025`;
+  p.kind === "year"
+    ? NM < 12 ? `Ene–${MONTHS_LONG[NM - 1].slice(0, 3).toLowerCase()} ${CUR}` : `Año ${CUR}`
+    : p.kind === "quarter" ? `T${p.q} ${CUR}` : `${MONTHS_LONG[p.m]} ${CUR}`;
 
-export const byId = (id: string) => ENTITIES.find((e) => e.id === id)!;
+export const byId = (id: string) => ENTITIES.find((e) => e.id === id) ?? ENTITIES[0];
 
 const sumIdx = (arr: number[] | undefined, idx: number[]) =>
   arr ? idx.reduce((acc, i) => acc + (arr[i] ?? 0), 0) : null;
 
-export const finSum = (e: Entity, key: FinKey, idx: number[], y: Year = "y25") =>
+export const finSum = (e: Entity, key: FinKey, idx: number[], y: Year = "cur") =>
   sumIdx(e.fin[key]?.[y], idx);
 
 const SERVICE_KEYS: ServiceKey[] = ["rtm_motos", "rtm_livianos", "rtm_pesados", "prev_motos", "prev_livianos", "prev_pesados"];
 
-export const servSum = (e: Entity, idx: number[], y: Year = "y25", filter: (k: ServiceKey) => boolean = () => true) => {
+export const servSum = (e: Entity, idx: number[], y: Year = "cur", filter: (k: ServiceKey) => boolean = () => true) => {
   if (!e.services) return null;
   return SERVICE_KEYS.filter(filter).reduce((acc, k) => acc + (sumIdx(e.services![k]?.[y], idx) ?? 0), 0);
 };
 
 export type MetricKey =
   | "ingresos" | "gastos" | "ebitda" | "resultado" | "margenEbitda" | "margenNeto"
-  | "servicios" | "rtm" | "preventivas" | "ticket";
+  | "servicios" | "rtm" | "preventivas" | "ticket" | "avance" | "avanceServ";
 
 export type Unit = "cop" | "pct" | "count";
 
@@ -50,11 +70,16 @@ export const METRICS: { key: MetricKey; label: string; unit: Unit; hint: string 
   { key: "rtm", label: "Revisiones RTM", unit: "count", hint: "Motos, livianos y pesados" },
   { key: "preventivas", label: "Preventivas", unit: "count", hint: "Revisiones preventivas" },
   { key: "ticket", label: "Ingreso por servicio", unit: "cop", hint: "Ingresos op. / servicios" },
+  { key: "avance", label: "Avance ingresos vs año anterior", unit: "pct", hint: "Ingresos del período / ingresos del año anterior completo" },
+  { key: "avanceServ", label: "Avance servicios vs año anterior", unit: "pct", hint: "Servicios del período / servicios del año anterior completo" },
 ];
+
+/** Indicadores disponibles en el conjunto de datos activo. */
+export const metricsAvailable = () => METRICS.filter((m) => !m.key.startsWith("avance") || !!DS.targetLabel);
 
 export const metricDef = (k: MetricKey) => METRICS.find((m) => m.key === k)!;
 
-export function metric(e: Entity, k: MetricKey, idx: number[], y: Year = "y25"): number | null {
+export function metric(e: Entity, k: MetricKey, idx: number[], y: Year = "cur"): number | null {
   const ing = finSum(e, "ingOp", idx, y);
   switch (k) {
     case "ingresos": return ing;
@@ -78,6 +103,15 @@ export function metric(e: Entity, k: MetricKey, idx: number[], y: Year = "y25"):
       const s = servSum(e, withServ, y);
       const ingS = finSum(e, "ingOp", withServ, y);
       return s && ingS ? ingS / s : null;
+    }
+    case "avance": {
+      const t = e.target?.ingOp;
+      return y === "cur" && t && ing != null ? (ing / t) * 100 : null;
+    }
+    case "avanceServ": {
+      const t = e.target?.servicios;
+      const s = servSum(e, idx, y);
+      return y === "cur" && t && s != null ? (s / t) * 100 : null;
     }
   }
 }

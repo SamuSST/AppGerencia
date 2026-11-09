@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { BarChart3, Building2, ChevronRight, CircleHelp, Database, FileText, GitCompare, LogOut, Menu, X } from "lucide-react";
 import { Toaster, toast } from "sonner";
-import { ENTITIES, byId, periodLabel, type Period } from "./data/metrics";
+import { DATASETS, DS, ENTITIES, byId, periodLabel, setDataset, type Period } from "./data/metrics";
 import { GroupOverview } from "./gerencia/GroupOverview";
 import { CdaDetail } from "./gerencia/CdaDetail";
 import { Compare } from "./gerencia/Compare";
@@ -20,13 +20,13 @@ const NAV: { view: View; label: string; icon: typeof BarChart3 }[] = [
   { view: "carga", label: "Carga de datos", icon: Database },
 ];
 
-const TITLES: Record<View, [string, string]> = {
-  grupo: ["Pulso del grupo", "Los seis CDAs del grupo, 2025 frente a 2024, con datos de los Mapa Tipo."],
+const titles = (): Record<View, [string, string]> => ({
+  grupo: ["Pulso del grupo", `Los seis CDAs del grupo: ${DS.label.replace(" · ", ", ")}, con datos de los Mapa Tipo.`],
   cda: ["Ficha individual", "Indicadores, estado de resultados y servicios de un CDA."],
   comparar: ["Comparar CDAs", "Elige los CDAs y el indicador; compáralos entre sí y contra el promedio del grupo."],
   informes: ["Informes", "Reportes listos para ver, descargar en CSV o imprimir en PDF."],
   carga: ["Carga de datos", "Archivos Excel que alimentan los tableros."],
-};
+});
 
 function Login({ onEnter }: { onEnter: (s: Session) => void }) {
   const [role, setRole] = useState<"general" | "cda">("general");
@@ -43,7 +43,7 @@ function Login({ onEnter }: { onEnter: (s: Session) => void }) {
           </div>
         </div>
         <div>
-          <p className="mb-4 font-mono text-[11px] tracking-[0.18em] text-[#ff8a90]">INFORME DE CIERRE 2025</p>
+          <p className="mb-4 font-mono text-[11px] tracking-[0.18em] text-[#ff8a90]">INFORME A SEPTIEMBRE 2026</p>
           <h1 className="max-w-md text-[44px] font-extrabold leading-[1.05] tracking-[-0.04em]">Los seis CDAs del grupo, en un solo tablero.</h1>
           <div className="mt-8 flex flex-wrap gap-2">
             {ENTITIES.map((e) => (
@@ -53,7 +53,7 @@ function Login({ onEnter }: { onEnter: (s: Session) => void }) {
             ))}
           </div>
         </div>
-        <p className="text-[11px] text-white/40">Prototipo funcional · datos reales de los Mapa Tipo ene–dic 2024/2025</p>
+        <p className="text-[11px] text-white/40">Prototipo funcional · datos reales de los Mapa Tipo 2024, 2025 y 2026</p>
       </div>
 
       <div className="flex items-center justify-center p-6">
@@ -100,6 +100,12 @@ export default function App() {
   const [period, setPeriod] = useState<Period>({ kind: "year" });
   const [compareSel, setCompareSel] = useState<string[]>(ENTITIES.map((e) => e.id));
   const [mobileNav, setMobileNav] = useState(false);
+  const [ds, setDs] = useState(DS.id);
+  const changeDataset = (id: string) => {
+    setDataset(id);
+    setDs(id);
+    setPeriod({ kind: "year" });
+  };
 
   useEffect(() => {
     window.scrollTo({ top: 0 });
@@ -125,7 +131,7 @@ export default function App() {
       </>
     );
 
-  const [title, subtitle] = TITLES[view];
+  const [title, subtitle] = titles()[view];
 
   return (
     <div className="min-h-screen bg-background text-foreground">
@@ -167,7 +173,13 @@ export default function App() {
         <header className="sticky top-0 z-30 flex h-[76px] items-center justify-between gap-3 border-b border-border bg-background/95 px-4 backdrop-blur-xl print:static sm:px-8">
           <div className="flex items-center gap-3">
             <button className="grid h-10 w-10 place-items-center rounded-lg border border-border lg:hidden print:hidden" onClick={() => setMobileNav(true)} aria-label="Abrir menú"><Menu size={19} /></button>
-            {view !== "carga" && <div className="print:hidden"><PeriodPicker value={period} onChange={setPeriod} /></div>}
+            <label className="flex items-center gap-2 rounded-lg border border-[#0d2438] bg-[#0d2438] px-3 py-1.5 text-white print:hidden">
+              <span className="hidden font-mono text-[10px] tracking-[0.12em] text-white/60 sm:inline">COMPARAR</span>
+              <select value={ds} onChange={(e) => changeDataset(e.target.value)} className="bg-transparent text-xs font-bold outline-none [&>option]:text-black">
+                {DATASETS.map((d) => <option key={d.id} value={d.id}>{d.label}</option>)}
+              </select>
+            </label>
+            {view !== "carga" && <div className="print:hidden"><PeriodPicker key={ds} value={period} onChange={setPeriod} /></div>}
             <span className="hidden font-mono text-[11px] text-muted-foreground print:inline">{periodLabel(period)}</span>
           </div>
           <div className="flex items-center gap-2 border-l border-border pl-3">
@@ -182,18 +194,20 @@ export default function App() {
         <div className="mx-auto max-w-[1500px] px-4 py-7 sm:px-8 sm:py-9">
           <div className="mb-7">
             <div className="mb-2 flex items-center gap-2">
-              <span className="font-mono text-[10px] font-semibold tracking-[0.17em] text-[#c8202a]">CIERRE 2025 · {periodLabel(period).toUpperCase()}</span>
+              <span className="font-mono text-[10px] font-semibold tracking-[0.17em] text-[#c8202a]">{DS.label.toUpperCase()} · {periodLabel(period).toUpperCase()}</span>
               <span className="h-px w-10 bg-[#e42b35]/40" />
             </div>
             <h1 className="text-3xl font-extrabold tracking-[-0.04em] sm:text-[38px]">{title}</h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">{subtitle}</p>
           </div>
 
+          <div key={ds} className="contents">
           {view === "grupo" && <GroupOverview period={period} onOpen={(id) => go("cda", id)} />}
           {view === "cda" && <CdaDetail id={cda} period={period} onChange={setCda} />}
           {view === "comparar" && <Compare period={period} selected={compareSel} setSelected={setCompareSel} />}
           {view === "informes" && <Reports period={period} go={go} />}
           {view === "carga" && <DataLoad />}
+          </div>
         </div>
       </main>
       <Toaster position="bottom-right" />

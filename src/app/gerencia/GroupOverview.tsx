@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { ChevronRight } from "lucide-react";
-import { ENTITIES, MONTHS, MONTHS_LONG, fmtAxis, fmtPct, fmtValue, metric, metricDef, periodLabel, periodMonths, variation, type MetricKey, type Period } from "../data/metrics";
+import { ENTITIES, MONTHS, MONTHS_LONG, fmtAxis, fmtPct, fmtValue, metric, metricDef, periodLabel, periodMonths, variation, type MetricKey, type Period, CUR, PREV, DS, NM } from "../data/metrics";
 import { ChartTip, Delta, GRID, Kpi, Legend, Panel, PREV_COLOR, Segmented, axisTick } from "./ui";
 
 const TREND_METRICS: MetricKey[] = ["ingresos", "ebitda", "resultado", "servicios"];
@@ -11,28 +11,38 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
   const [trend, setTrend] = useState<MetricKey>("ingresos");
   const [hidden, setHidden] = useState<string[]>([]);
 
-  const total = (k: MetricKey, y: "y25" | "y24", ids?: string[]) =>
+  const total = (k: MetricKey, y: "cur" | "prev", ids?: string[]) =>
     ENTITIES.filter((e) => !ids || ids.includes(e.id)).reduce((a, e) => a + (metric(e, k, idx, y) ?? 0), 0);
 
   const withEbitda = ENTITIES.filter((e) => e.fin.ebitda).map((e) => e.id);
   const withServ = ENTITIES.filter((e) => e.services).map((e) => e.id);
+  const withIng = ENTITIES.filter((e) => e.fin.ingOp).map((e) => e.id);
+  const note = (ids: string[], what = "") => {
+    const miss = ENTITIES.filter((e) => !ids.includes(e.id)).map((e) => e.short);
+    return `${ids.length} CDAs${miss.length ? ` · sin ${what}${miss.join(", ")}` : ""}`;
+  };
+  const hasTarget = !!DS.targetLabel;
+  const pace = (NM / 12) * 100;
+  const targetIng = ENTITIES.filter((e) => e.fin.ingOp).reduce((a, e) => a + (e.target?.ingOp ?? 0), 0);
+  const avanceRows = ENTITIES.map((e) => ({ e, v: metric(e, "avance", [...Array(NM).keys()]), t: e.target?.ingOp ?? null, ing: metric(e, "ingresos", [...Array(NM).keys()]) }))
+    .sort((a, b) => (b.v ?? -1) - (a.v ?? -1));
 
   const rows = useMemo(
     () =>
       ENTITIES.map((e) => ({
         e,
         ing: metric(e, "ingresos", idx),
-        ingVar: variation(metric(e, "ingresos", idx), metric(e, "ingresos", idx, "y24")),
+        ingVar: variation(metric(e, "ingresos", idx), metric(e, "ingresos", idx, "prev")),
         ebitda: metric(e, "ebitda", idx),
         mEbitda: metric(e, "margenEbitda", idx),
         res: metric(e, "resultado", idx),
         serv: metric(e, "servicios", idx),
-        servVar: variation(metric(e, "servicios", idx), metric(e, "servicios", idx, "y24")),
+        servVar: variation(metric(e, "servicios", idx), metric(e, "servicios", idx, "prev")),
         ticket: metric(e, "ticket", idx),
       })).sort((a, b) => (b.ing ?? 0) - (a.ing ?? 0)),
     [period],
   );
-  const totalIng = total("ingresos", "y25");
+  const totalIng = total("ingresos", "cur");
 
   const trendDef = metricDef(trend);
   const trendData = MONTHS.map((m, i) => {
@@ -41,20 +51,23 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
     return row;
   });
 
-  const barData = rows.map((r) => ({ name: r.e.short, id: r.e.id, y25: r.ing, y24: metric(r.e, "ingresos", idx, "y24"), color: r.e.color }));
+  const barData = rows.map((r) => ({ name: r.e.short, id: r.e.id, cur: r.ing, prev: metric(r.e, "ingresos", idx, "prev"), color: r.e.color }));
 
   return (
     <div className="space-y-6">
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <Kpi label="Ingresos operacionales" value={fmtValue(totalIng, "cop")} delta={variation(totalIng, total("ingresos", "y24"))} note="Suma de los 6 CDAs" accent="#e42b35" />
-        <Kpi label="EBITDA" value={fmtValue(total("ebitda", "y25", withEbitda), "cop")} delta={variation(total("ebitda", "y25", withEbitda), total("ebitda", "y24", withEbitda))} note="5 CDAs · Tecnosabana no lo reporta" accent="#0d2438" />
-        <Kpi label="Resultado antes de impuestos" value={fmtValue(total("resultado", "y25"), "cop")} delta={variation(total("resultado", "y25"), total("resultado", "y24"))} note={`Margen neto ${fmtValue((total("resultado", "y25") / totalIng) * 100, "pct")}`} accent="#df9d37" />
-        <Kpi label="Servicios realizados" value={fmtValue(total("servicios", "y25", withServ), "count")} delta={variation(total("servicios", "y25", withServ), total("servicios", "y24", withServ))} note="5 CDAs · Tecnosabana no lo reporta" accent="#8298a8" />
+      <div className={`grid gap-3 sm:grid-cols-2 ${hasTarget ? "xl:grid-cols-5" : "xl:grid-cols-4"}`}>
+        <Kpi label="Ingresos operacionales" value={fmtValue(totalIng, "cop")} delta={variation(totalIng, total("ingresos", "prev"))} note={note(withIng, "datos: ")} accent="#e42b35" />
+        {hasTarget && (
+          <Kpi label={`Avance vs ${DS.targetLabel?.toLowerCase()}`} value={fmtValue((total("ingresos", "cur", withIng) / targetIng) * 100, "pct")} note={`De ${fmtValue(targetIng, "cop")} facturados en todo ${PREV} · ritmo esperado a ${MONTHS_LONG[NM - 1].toLowerCase()}: ${fmtValue(pace, "pct")}`} accent="#1baf7a" />
+        )}
+        <Kpi label="EBITDA" value={fmtValue(total("ebitda", "cur", withEbitda), "cop")} delta={variation(total("ebitda", "cur", withEbitda), total("ebitda", "prev", withEbitda))} note={note(withEbitda)} accent="#0d2438" />
+        <Kpi label="Resultado antes de impuestos" value={fmtValue(total("resultado", "cur"), "cop")} delta={variation(total("resultado", "cur"), total("resultado", "prev"))} note={`Margen neto ${fmtValue((total("resultado", "cur") / totalIng) * 100, "pct")}`} accent="#df9d37" />
+        <Kpi label="Servicios realizados" value={fmtValue(total("servicios", "cur", withServ), "count")} delta={variation(total("servicios", "cur", withServ), total("servicios", "prev", withServ))} note={note(withServ)} accent="#8298a8" />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <Panel
-          eyebrow="EVOLUCIÓN MENSUAL 2025"
+          eyebrow={`EVOLUCIÓN MENSUAL ${CUR}`}
           title={`${trendDef.label} por CDA`}
           right={<Segmented value={trend} onChange={setTrend} options={TREND_METRICS.map((k) => ({ value: k, label: metricDef(k).label.split(" ")[0] }))} />}
         >
@@ -87,7 +100,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
                   content={({ active, payload }) =>
                     active && payload?.length ? (
                       <ChartTip
-                        title={`${MONTHS_LONG[payload[0].payload.i]} 2025`}
+                        title={`${MONTHS_LONG[payload[0].payload.i]} ${CUR}`}
                         rows={[...payload].sort((a, b) => Number(b.value) - Number(a.value)).map((p) => {
                           const e = ENTITIES.find((x) => x.id === p.dataKey)!;
                           return { name: e.short, color: e.color, value: fmtValue(p.value as number, trendDef.unit) };
@@ -104,7 +117,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
           </div>
         </Panel>
 
-        <Panel eyebrow={periodLabel(period).toUpperCase()} title="Ingresos por CDA · 2025 vs 2024" right={<Legend items={[{ label: "2025", color: "#0d2438" }, { label: "2024", color: PREV_COLOR }]} />}>
+        <Panel eyebrow={periodLabel(period).toUpperCase()} title={`Ingresos por CDA · ${CUR} vs ${PREV}`} right={<Legend items={[{ label: String(CUR), color: "#0d2438" }, { label: String(PREV), color: PREV_COLOR }]} />}>
           <div className="h-[330px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={barData} layout="vertical" margin={{ top: 0, right: 12, left: 0, bottom: 0 }} barGap={2} onClick={(s: any) => s?.activePayload?.[0] && onOpen(s.activePayload[0].payload.id)}>
@@ -118,28 +131,55 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
                       <ChartTip
                         title={payload[0].payload.name}
                         rows={[
-                          { name: "2025", color: "#0d2438", value: fmtValue(payload[0].payload.y25, "cop") },
-                          { name: "2024", color: PREV_COLOR, value: fmtValue(payload[0].payload.y24, "cop") },
-                          { name: "Variación", value: fmtPct(variation(payload[0].payload.y25, payload[0].payload.y24)) },
+                          { name: String(CUR), color: "#0d2438", value: fmtValue(payload[0].payload.cur, "cop") },
+                          { name: String(PREV), color: PREV_COLOR, value: fmtValue(payload[0].payload.prev, "cop") },
+                          { name: "Variación", value: fmtPct(variation(payload[0].payload.cur, payload[0].payload.prev)) },
                         ]}
                       />
                     ) : null
                   }
                 />
-                <Bar dataKey="y25" fill="#0d2438" radius={[0, 4, 4, 0]} barSize={10} className="cursor-pointer" />
-                <Bar dataKey="y24" fill={PREV_COLOR} radius={[0, 4, 4, 0]} barSize={10} />
+                <Bar dataKey="cur" fill="#0d2438" radius={[0, 4, 4, 0]} barSize={10} className="cursor-pointer" />
+                <Bar dataKey="prev" fill={PREV_COLOR} radius={[0, 4, 4, 0]} barSize={10} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </Panel>
       </div>
 
+      {hasTarget && (
+        <Panel eyebrow={`CUMPLIMIENTO · ${periodLabel({ kind: "year" }).toUpperCase()} VS ${DS.targetLabel?.toUpperCase()}`} title={`¿Qué porcentaje de lo facturado en ${PREV} lleva cada CDA?`} right={<Legend items={[{ label: `Ritmo esperado (${fmtValue(pace, "pct")})`, color: "#0d2438", dashed: true }]} />}>
+          <div className="space-y-3">
+            {avanceRows.map(({ e, v, t, ing }) => (
+              <div key={e.id} className="grid grid-cols-[100px_1fr_70px] items-center gap-3 text-xs sm:grid-cols-[130px_1fr_300px]">
+                <button onClick={() => onOpen(e.id)} className="flex items-center gap-2 text-left font-bold hover:underline">
+                  <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: e.color }} />{e.short}{e.target?.estimated && <span className="text-[#c8202a]">*</span>}
+                </button>
+                {v == null ? (
+                  <span className="rounded-md border border-dashed border-amber-300 bg-amber-50 px-2 py-1 text-[11px] text-amber-800">{e.pending ?? "Sin dato"}</span>
+                ) : (
+                  <div className="relative h-3 rounded-full bg-secondary">
+                    <div className="h-full rounded-full" style={{ width: `${Math.min(100, v)}%`, background: e.color }} />
+                    <span className="absolute -top-1 bottom-[-4px] border-l-2 border-dashed border-[#0d2438]" style={{ left: `${pace}%` }} />
+                  </div>
+                )}
+                <span className="flex items-center justify-end gap-3 font-mono">
+                  <span className="hidden whitespace-nowrap text-muted-foreground sm:inline">{fmtValue(ing, "cop")} / {fmtValue(t, "cop")}</span>
+                  <span className={`w-14 text-right font-semibold ${v != null && v >= pace ? "text-emerald-800" : v != null ? "text-red-700" : ""}`}>{fmtValue(v, "pct")}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-4 text-[11px] text-muted-foreground">Ingresos operacionales {periodLabel({ kind: "year" }).toLowerCase()} ÷ ingresos operacionales de todo {PREV} (cierre a diciembre). Verde = va por encima del ritmo esperado ({NM} de 12 meses).</p>
+        </Panel>
+      )}
+
       <Panel eyebrow={`RANKING · ${periodLabel(period).toUpperCase()}`} title="Tablero comparativo de CDAs" right={<span className="text-[11px] text-muted-foreground">Clic en una fila para abrir la ficha</span>}>
         <div className="-mx-5 overflow-x-auto sm:-mx-6">
-          <table className="w-full min-w-[880px] text-left text-xs">
+          <table className="w-full min-w-[980px] whitespace-nowrap text-left text-xs">
             <thead>
               <tr className="border-y border-border bg-secondary/50 font-mono text-[10px] tracking-[0.08em] text-muted-foreground">
-                {["#", "CDA", "Ingresos op.", "Part.", "Var. 24", "EBITDA", "Margen EBITDA", "Resultado", "Servicios", "Var. 24", "Ingreso / serv.", ""].map((h, i) => (
+                {["#", "CDA", "Ingresos op.", "Part.", `Var. ${PREV}`, "EBITDA", "Margen EBITDA", "Resultado", "Servicios", `Var. ${PREV}`, "Ingreso / serv.", ""].map((h, i) => (
                   <th key={i} className={`px-3 py-2.5 font-semibold ${i > 1 ? "text-right" : ""} ${i === 0 ? "pl-5 sm:pl-6" : ""}`}>{h}</th>
                 ))}
               </tr>
@@ -152,7 +192,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
                     <div className="flex items-center gap-2">
                       <span className="h-2.5 w-2.5 rounded-full" style={{ background: r.e.color }} />
                       <div>
-                        <p className="font-bold">{r.e.short}{r.e.estimated && <span className="text-[#c8202a]" title={r.e.estimated}> *</span>}</p>
+                        <p className="font-bold">{r.e.short}{r.e.estimated && <span className="text-[#c8202a]" title={r.e.estimated}> *</span>}{r.e.pending && <span className="ml-1.5 rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-800">Pendiente</span>}</p>
                         <p className="text-[10px] text-muted-foreground">{r.e.city}</p>
                       </div>
                     </div>
@@ -178,7 +218,7 @@ export function GroupOverview({ period, onOpen }: { period: Period; onOpen: (id:
           </table>
         </div>
         <p className="mt-4 text-[11px] text-muted-foreground">
-          “—” = el Excel de origen no trae ese dato (Tecnosabana no reporta EBITDA ni cantidad de servicios). * ITAC Norte y Sur: las finanzas se reparten según el % de servicios de cada sede, porque el Excel de ITAC las trae juntas.
+          “—” = el Excel de origen no trae ese dato o aún no se ha cargado. * ITAC Norte y Sur: {ENTITIES.find((e) => e.estimated)?.estimated}
         </p>
       </Panel>
     </div>

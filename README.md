@@ -1,6 +1,6 @@
 # Portal de Gerencia · Grupo Cardisel
 
-Prototipo de aplicación web para los gerentes de los CDAs del Grupo Cardisel: informes y gráficos por CDA y comparativos entre los seis CDAs del grupo (La 37, Inteco, ITAC Norte, ITAC Sur, Tecnosabana y Unimilenio), con datos reales de los Mapa Tipo 2024–2025.
+Prototipo de aplicación web para los gerentes de los CDAs del Grupo Cardisel: informes y gráficos por CDA y comparativos entre los seis CDAs del grupo (La 37, Inteco, ITAC Norte, ITAC Sur, Tecnosabana y Unimilenio). Vista principal: **2026 vs 2025 a septiembre** y cumplimiento frente al cierre 2025; vista alterna: cierre 2025 vs 2024.
 
 **Ver en línea:** https://samusst.github.io/AppGerencia/
 

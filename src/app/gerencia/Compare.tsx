@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Check, Download } from "lucide-react";
-import { ENTITIES, METRICS, MONTHS, MONTHS_LONG, downloadCSV, fmtAxis, fmtPct, fmtValue, metric, metricDef, periodLabel, periodMonths, variation, type MetricKey, type Period } from "../data/metrics";
+import { ENTITIES, metricsAvailable, MONTHS, MONTHS_LONG, downloadCSV, fmtAxis, fmtPct, fmtValue, metric, metricDef, periodLabel, periodMonths, variation, type MetricKey, type Period, CUR, PREV } from "../data/metrics";
 import { ChartTip, Delta, GRID, Legend, Panel, PREV_COLOR, Segmented, axisTick } from "./ui";
 
 const pp = (v: number) => `${v >= 0 ? "+" : ""}${v.toLocaleString("es-CO", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pp`;
@@ -15,9 +15,9 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
   const avail = ents.filter((e) => metric(e, mk, idx) != null);
   const missing = ents.filter((e) => metric(e, mk, idx) == null);
 
-  const totals = avail.map((e) => ({ id: e.id, name: e.short, color: e.color, y25: metric(e, mk, idx)!, y24: metric(e, mk, idx, "y24") }));
-  const avg = totals.length ? totals.reduce((a, t) => a + t.y25, 0) / totals.length : 0;
-  const ranked = [...totals].sort((a, b) => b.y25 - a.y25);
+  const totals = avail.map((e) => ({ id: e.id, name: e.short, color: e.color, cur: metric(e, mk, idx)!, prev: metric(e, mk, idx, "prev") }));
+  const avg = totals.length ? totals.reduce((a, t) => a + t.cur, 0) / totals.length : 0;
+  const ranked = [...totals].sort((a, b) => b.cur - a.cur);
 
   const monthly = MONTHS.map((m, i) => {
     const r: Record<string, number | string | null> = { m, i };
@@ -44,7 +44,7 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
           <button onClick={() => setSelected([])} className="px-2 text-[11px] font-bold text-muted-foreground underline-offset-2 hover:underline">Ninguno</button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {METRICS.map((m) => (
+          {metricsAvailable().map((m) => (
             <button key={m.key} onClick={() => setMk(m.key)} title={m.hint} className={`rounded-full border px-3 py-1.5 text-[11px] font-semibold transition ${mk === m.key ? "border-[#e42b35] bg-[#e42b35] text-white" : "border-border bg-white text-muted-foreground hover:text-foreground"}`}>
               {m.label}
             </button>
@@ -53,13 +53,13 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
       </Panel>
 
       <Panel
-        eyebrow={`${def.label.toUpperCase()} · ${mode === "total" ? periodLabel(period).toUpperCase() : "MES A MES 2025"}`}
-        title={mode === "total" ? "Comparativo 2025 vs 2024" : "Evolución mensual comparada"}
+        eyebrow={`${def.label.toUpperCase()} · ${mode === "total" ? periodLabel(period).toUpperCase() : `MES A MES ${CUR}`}`}
+        title={mode === "total" ? `Comparativo ${CUR} vs ${PREV}` : "Evolución mensual comparada"}
         right={
           <div className="flex flex-wrap items-center gap-3">
             <Segmented value={mode} onChange={setMode} options={[{ value: "total", label: "Total período" }, { value: "mensual", label: "Mes a mes" }]} />
             <button
-              onClick={() => downloadCSV(`comparativo-${mk}-${periodLabel(period).replace(/\s/g, "-")}.csv`, [["CDA", "2025", "2024", "Variación %"], ...ranked.map((t) => [t.name, t.y25, t.y24, variation(t.y25, t.y24)])])}
+              onClick={() => downloadCSV(`comparativo-${mk}-${periodLabel(period).replace(/\s/g, "-")}.csv`, [["CDA", String(CUR), String(PREV), "Variación %"], ...ranked.map((t) => [t.name, t.cur, t.prev, variation(t.cur, t.prev)])])}
               className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-white px-3 py-1.5 text-xs font-bold hover:bg-secondary"
             >
               <Download size={13} /> CSV
@@ -71,7 +71,7 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
           <p className="py-16 text-center text-sm text-muted-foreground">Selecciona al menos un CDA con datos para este indicador.</p>
         ) : mode === "total" ? (
           <>
-            <div className="mb-3"><Legend items={[{ label: "2025 (color de cada CDA)", color: "#0d2438" }, { label: "2024", color: PREV_COLOR }, { label: "Promedio 2025", color: "#0d2438", dashed: true }]} /></div>
+            <div className="mb-3"><Legend items={[{ label: `${CUR} (color de cada CDA)`, color: "#0d2438" }, { label: String(PREV), color: PREV_COLOR }, { label: `Promedio ${CUR}`, color: "#0d2438", dashed: true }]} /></div>
             <div className="h-[320px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={ranked} margin={{ top: 12, right: 8, left: 0, bottom: 0 }} barGap={3}>
@@ -85,13 +85,13 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
                     content={({ active, payload }) => {
                       if (!active || !payload?.length) return null;
                       const p = payload[0].payload;
-                      return <ChartTip title={p.name} rows={[{ name: "2025", color: p.color, value: fmtValue(p.y25, def.unit) }, { name: "2024", color: PREV_COLOR, value: fmtValue(p.y24, def.unit) }, { name: def.unit === "pct" ? "Diferencia" : "Variación", value: def.unit === "pct" ? pp(p.y25 - (p.y24 ?? 0)) : fmtPct(variation(p.y25, p.y24)) }, { name: "vs promedio", value: def.unit === "pct" ? pp(p.y25 - avg) : fmtPct(variation(p.y25, avg)) }]} />;
+                      return <ChartTip title={p.name} rows={[{ name: String(CUR), color: p.color, value: fmtValue(p.cur, def.unit) }, { name: String(PREV), color: PREV_COLOR, value: fmtValue(p.prev, def.unit) }, { name: def.unit === "pct" ? "Diferencia" : "Variación", value: def.unit === "pct" ? pp(p.cur - (p.prev ?? 0)) : fmtPct(variation(p.cur, p.prev)) }, { name: "vs promedio", value: def.unit === "pct" ? pp(p.cur - avg) : fmtPct(variation(p.cur, avg)) }]} />;
                     }}
                   />
-                  <Bar dataKey="y25" radius={[4, 4, 0, 0]} barSize={22}>
+                  <Bar dataKey="cur" radius={[4, 4, 0, 0]} barSize={22}>
                     {ranked.map((t) => <Cell key={t.id} fill={t.color} />)}
                   </Bar>
-                  <Bar dataKey="y24" fill={PREV_COLOR} radius={[4, 4, 0, 0]} barSize={22} />
+                  <Bar dataKey="prev" fill={PREV_COLOR} radius={[4, 4, 0, 0]} barSize={22} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
@@ -110,7 +110,7 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
                     cursor={{ stroke: "#0d2438", strokeDasharray: "3 3" }}
                     content={({ active, payload }) =>
                       active && payload?.length ? (
-                        <ChartTip title={`${MONTHS_LONG[payload[0].payload.i]} 2025`} rows={[...payload].sort((a, b) => Number(b.value) - Number(a.value)).map((p) => { const e = ENTITIES.find((x) => x.id === p.dataKey)!; return { name: e.short, color: e.color, value: fmtValue(p.value as number, def.unit) }; })} />
+                        <ChartTip title={`${MONTHS_LONG[payload[0].payload.i]} ${CUR}`} rows={[...payload].sort((a, b) => Number(b.value) - Number(a.value)).map((p) => { const e = ENTITIES.find((x) => x.id === p.dataKey)!; return { name: e.short, color: e.color, value: fmtValue(p.value as number, def.unit) }; })} />
                       ) : null
                     }
                   />
@@ -126,13 +126,13 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
       {ranked.length > 0 && (
         <Panel eyebrow="TABLA DE POSICIONES" title={`${def.label} · ${periodLabel(period)}`}>
           <div className="-mx-5 overflow-x-auto sm:-mx-6">
-            <table className="w-full min-w-[620px] text-xs">
+            <table className="w-full whitespace-nowrap min-w-[620px] text-xs">
               <thead>
                 <tr className="border-y border-border bg-secondary/50 font-mono text-[10px] tracking-[0.08em] text-muted-foreground">
                   <th className="py-2.5 pl-5 text-left font-semibold sm:pl-6">#</th>
                   <th className="px-3 text-left font-semibold">UNIDAD</th>
-                  <th className="px-3 text-right font-semibold">2025</th>
-                  <th className="px-3 text-right font-semibold">2024</th>
+                  <th className="px-3 text-right font-semibold">{CUR}</th>
+                  <th className="px-3 text-right font-semibold">{PREV}</th>
                   <th className="px-3 text-right font-semibold">VARIACIÓN</th>
                   <th className="px-3 pr-5 text-right font-semibold sm:pr-6">VS PROMEDIO</th>
                 </tr>
@@ -142,10 +142,10 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
                   <tr key={t.id} className="border-b border-border/60">
                     <td className="py-3 pl-5 font-mono text-muted-foreground sm:pl-6">{String(i + 1).padStart(2, "0")}</td>
                     <td className="px-3"><span className="inline-flex items-center gap-2 font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: t.color }} />{t.name}</span></td>
-                    <td className="px-3 text-right font-mono font-semibold">{fmtValue(t.y25, def.unit)}</td>
-                    <td className="px-3 text-right font-mono text-muted-foreground">{fmtValue(t.y24, def.unit)}</td>
-                    <td className="px-3 text-right">{def.unit === "pct" ? <span className="font-mono">{t.y24 == null ? "—" : pp(t.y25 - t.y24)}</span> : <Delta value={variation(t.y25, t.y24)} invert={mk === "gastos"} suffix="" />}</td>
-                    <td className="px-3 pr-5 text-right font-mono sm:pr-6">{def.unit === "pct" ? pp(t.y25 - avg) : fmtPct(variation(t.y25, avg))}</td>
+                    <td className="px-3 text-right font-mono font-semibold">{fmtValue(t.cur, def.unit)}</td>
+                    <td className="px-3 text-right font-mono text-muted-foreground">{fmtValue(t.prev, def.unit)}</td>
+                    <td className="px-3 text-right">{def.unit === "pct" ? <span className="font-mono">{t.prev == null ? "—" : pp(t.cur - t.prev)}</span> : <Delta value={variation(t.cur, t.prev)} invert={mk === "gastos"} suffix="" />}</td>
+                    <td className="px-3 pr-5 text-right font-mono sm:pr-6">{def.unit === "pct" ? pp(t.cur - avg) : fmtPct(variation(t.cur, avg))}</td>
                   </tr>
                 ))}
               </tbody>

@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight, Info, Minus } from "lucide-react";
-import { MONTHS_LONG, type Period } from "../data/metrics";
+import { MONTHS_LONG, NM, PREV, type Period } from "../data/metrics";
 
 export function Panel({ eyebrow, title, right, children, className = "" }: { eyebrow?: string; title?: string; right?: ReactNode; children: ReactNode; className?: string }) {
   return (
@@ -19,7 +19,8 @@ export function Panel({ eyebrow, title, right, children, className = "" }: { eye
   );
 }
 
-export function Delta({ value, invert = false, suffix = "vs 2024" }: { value: number | null; invert?: boolean; suffix?: string }) {
+export function Delta({ value, invert = false, suffix }: { value: number | null; invert?: boolean; suffix?: string }) {
+  suffix = suffix ?? `vs ${PREV}`;
   if (value == null || !isFinite(value))
     return <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground"><Minus size={12} /> sin comparativo</span>;
   const up = value >= 0;
@@ -78,9 +79,9 @@ export function PeriodPicker({ value, onChange }: { value: Period; onChange: (p:
         }}
         className="bg-transparent text-xs font-bold outline-none"
       >
-        <option value="year">Año 2025 (ene–dic)</option>
-        {[1, 2, 3, 4].map((q) => <option key={q} value={`q${q}`}>Trimestre {q}</option>)}
-        {MONTHS_LONG.map((m, i) => <option key={m} value={`m${i}`}>{m}</option>)}
+        <option value="year">{NM < 12 ? `Acumulado ene–${MONTHS_LONG[NM - 1].slice(0, 3).toLowerCase()}` : "Año completo (ene–dic)"}</option>
+        {[1, 2, 3, 4].filter((q) => q * 3 <= NM).map((q) => <option key={q} value={`q${q}`}>Trimestre {q}</option>)}
+        {MONTHS_LONG.slice(0, NM).map((m, i) => <option key={m} value={`m${i}`}>{m}</option>)}
       </select>
     </label>
   );

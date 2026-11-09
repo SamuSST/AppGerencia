@@ -1,6 +1,6 @@
 import { Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Download, FileSpreadsheet } from "lucide-react";
-import { ENTITIES, MONTHS, MONTHS_LONG, byId, downloadCSV, finSum, fmtAxis, fmtPct, fmtValue, metric, periodLabel, periodMonths, variation, type Period } from "../data/metrics";
+import { ENTITIES, MONTHS, MONTHS_LONG, byId, downloadCSV, finSum, fmtAxis, fmtPct, fmtValue, metric, periodLabel, periodMonths, variation, type Period, CUR, PREV } from "../data/metrics";
 import type { FinKey, ServiceKey } from "../data/types";
 import { ChartTip, Delta, GRID, Kpi, Legend, Missing, Panel, PREV_COLOR, axisTick } from "./ui";
 
@@ -49,15 +49,15 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
 
   const monthly = MONTHS.map((m, i) => ({
     m, i, inPeriod: idx.includes(i),
-    y25: e.fin.ingOp?.y25[i] ?? null,
-    y24: e.fin.ingOp?.y24[i] ?? null,
+    cur: e.fin.ingOp?.cur[i] ?? null,
+    prev: e.fin.ingOp?.prev[i] ?? null,
     ppto: e.fin.ingOp?.ppto?.[i] ?? null,
-    ebitda: e.fin.ebitda?.y25[i] ?? null,
-    res: e.fin.resultado?.y25[i] ?? null,
+    ebitda: e.fin.ebitda?.cur[i] ?? null,
+    res: e.fin.resultado?.cur[i] ?? null,
   }));
 
   const expenses = EXPENSES.filter((x) => has(x.key))
-    .map((x) => ({ ...x, v: finSum(e, x.key, idx) ?? 0, prev: finSum(e, x.key, idx, "y24") ?? 0 }))
+    .map((x) => ({ ...x, v: finSum(e, x.key, idx) ?? 0, prev: finSum(e, x.key, idx, "prev") ?? 0 }))
     .filter((x) => x.v > 0)
     .sort((a, b) => b.v - a.v);
   const expTotal = finSum(e, "gastOp", idx) ?? 0;
@@ -65,15 +65,15 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
   const servKeys = SERVICES.filter((s) => e.services?.[s.key]);
   const servData = MONTHS.map((m, i) => {
     const r: Record<string, number | string> = { m, i };
-    servKeys.forEach((s) => (r[s.key] = e.services![s.key]!.y25[i]));
+    servKeys.forEach((s) => (r[s.key] = e.services![s.key]!.cur[i]));
     return r;
   });
 
   const exportPnl = () =>
     downloadCSV(`estado-resultados-${e.id}-${periodLabel(period).replace(/\s/g, "-")}.csv`, [
-      ["Concepto", "2025", "2024", "Variación %"],
+      ["Concepto", String(CUR), String(PREV), "Variación %"],
       ...PNL.filter((p) => has(p.key)).map((p) => {
-        const a = finSum(e, p.key, idx), b = finSum(e, p.key, idx, "y24");
+        const a = finSum(e, p.key, idx), b = finSum(e, p.key, idx, "prev");
         return [p.label, a, b, variation(a, b)];
       }),
     ]);
@@ -97,12 +97,18 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
         <div>
           <p className="font-mono text-[10px] tracking-[0.16em] text-muted-foreground">FICHA INDIVIDUAL · {e.city.toUpperCase()}</p>
           <h2 className="mt-1 text-2xl font-extrabold tracking-tight">{e.name}</h2>
-          <p className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><FileSpreadsheet size={12} className="text-emerald-700" /> {e.source}</p>
+          <p className="mt-1 inline-flex items-center gap-1.5 text-[11px] text-muted-foreground"><FileSpreadsheet size={12} className="text-emerald-700" /> {e.sources[0] ?? "Sin archivo cargado"}</p>
         </div>
         <button onClick={exportPnl} className="inline-flex items-center gap-2 rounded-lg border border-border bg-white px-3 py-2 text-xs font-bold hover:bg-secondary">
           <Download size={14} /> Exportar estado de resultados (CSV)
         </button>
       </div>
+
+      {e.pending && (
+        <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+          <b>Información pendiente.</b> {e.pending} Cuando llegue el archivo se carga en “Carga de datos”.{e.target?.ingOp ? ` Su meta de referencia (ingresos de todo ${PREV}) es ${fmtValue(e.target.ingOp, "cop")}.` : ""}
+        </div>
+      )}
 
       {e.estimated && (
         <div className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-900">
@@ -111,18 +117,18 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
       )}
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        <Kpi label="Ingresos operacionales" value={fmtValue(ing, "cop")} delta={variation(ing, metric(e, "ingresos", idx, "y24"))} accent={e.color} />
-        <Kpi label="EBITDA" value={fmtValue(metric(e, "ebitda", idx), "cop")} delta={has("ebitda") ? variation(metric(e, "ebitda", idx), metric(e, "ebitda", idx, "y24")) : undefined} note={has("ebitda") ? `Margen ${fmtValue(metric(e, "margenEbitda", idx), "pct")}` : "No reportado en el Excel"} />
-        <Kpi label="Resultado antes de imp." value={fmtValue(metric(e, "resultado", idx), "cop")} delta={variation(metric(e, "resultado", idx), metric(e, "resultado", idx, "y24"))} note={`Margen neto ${fmtValue(metric(e, "margenNeto", idx), "pct")}`} />
-        <Kpi label="Servicios" value={fmtValue(metric(e, "servicios", idx), "count")} delta={e.services ? variation(metric(e, "servicios", idx), metric(e, "servicios", idx, "y24")) : undefined} note={e.services ? `${fmtValue(metric(e, "rtm", idx), "count")} RTM · ${fmtValue(metric(e, "preventivas", idx), "count")} prev.` : "Sin hoja de servicios"} />
-        <Kpi label="Ingreso por servicio" value={fmtValue(metric(e, "ticket", idx), "cop", false)} delta={e.services ? variation(metric(e, "ticket", idx), metric(e, "ticket", idx, "y24")) : undefined} note={e.services ? undefined : "Requiere servicios"} />
+        <Kpi label="Ingresos operacionales" value={fmtValue(ing, "cop")} delta={variation(ing, metric(e, "ingresos", idx, "prev"))} note={metric(e, "avance", idx) != null ? `${fmtValue(metric(e, "avance", idx), "pct")} de lo facturado en todo ${PREV}` : undefined} accent={e.color} />
+        <Kpi label="EBITDA" value={fmtValue(metric(e, "ebitda", idx), "cop")} delta={has("ebitda") ? variation(metric(e, "ebitda", idx), metric(e, "ebitda", idx, "prev")) : undefined} note={has("ebitda") ? `Margen ${fmtValue(metric(e, "margenEbitda", idx), "pct")}` : "No reportado en el Excel"} />
+        <Kpi label="Resultado antes de imp." value={fmtValue(metric(e, "resultado", idx), "cop")} delta={variation(metric(e, "resultado", idx), metric(e, "resultado", idx, "prev"))} note={`Margen neto ${fmtValue(metric(e, "margenNeto", idx), "pct")}`} />
+        <Kpi label="Servicios" value={fmtValue(metric(e, "servicios", idx), "count")} delta={e.services ? variation(metric(e, "servicios", idx), metric(e, "servicios", idx, "prev")) : undefined} note={e.services ? `${fmtValue(metric(e, "rtm", idx), "count")} RTM · ${fmtValue(metric(e, "preventivas", idx), "count")} prev.` : "Sin hoja de servicios"} />
+        <Kpi label="Ingreso por servicio" value={fmtValue(metric(e, "ticket", idx), "cop", false)} delta={e.services ? variation(metric(e, "ticket", idx), metric(e, "ticket", idx, "prev")) : undefined} note={e.services ? undefined : "Requiere servicios"} />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Panel
           eyebrow="INGRESOS OPERACIONALES"
-          title="Mensual 2025 vs 2024"
-          right={<Legend items={[{ label: "2025", color: e.color }, { label: "2024", color: PREV_COLOR }, ...(e.fin.ingOp?.ppto ? [{ label: "Presupuesto", color: "#0d2438", dashed: true }] : [])]} />}
+          title={`Mensual ${CUR} vs ${PREV}`}
+          right={<Legend items={[{ label: String(CUR), color: e.color }, { label: String(PREV), color: PREV_COLOR }, ...(e.fin.ingOp?.ppto ? [{ label: "Presupuesto", color: "#0d2438", dashed: true }] : [])]} />}
         >
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -139,19 +145,19 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
                       <ChartTip
                         title={MONTHS_LONG[p.i]}
                         rows={[
-                          { name: "2025", color: e.color, value: fmtValue(p.y25, "cop") },
-                          { name: "2024", color: PREV_COLOR, value: fmtValue(p.y24, "cop") },
+                          { name: String(CUR), color: e.color, value: fmtValue(p.cur, "cop") },
+                          { name: String(PREV), color: PREV_COLOR, value: fmtValue(p.prev, "cop") },
                           ...(p.ppto ? [{ name: "Presupuesto", color: "#0d2438", dashed: true, value: fmtValue(p.ppto, "cop") }] : []),
-                          { name: "Var. vs 2024", value: fmtPct(variation(p.y25, p.y24)) },
+                          { name: `Var. vs ${PREV}`, value: fmtPct(variation(p.cur, p.prev)) },
                         ]}
                       />
                     );
                   }}
                 />
-                <Bar dataKey="y25" radius={[4, 4, 0, 0]} barSize={11}>
+                <Bar dataKey="cur" radius={[4, 4, 0, 0]} barSize={11}>
                   {monthly.map((d) => <Cell key={d.m} fill={e.color} fillOpacity={d.inPeriod ? 1 : 0.3} />)}
                 </Bar>
-                <Bar dataKey="y24" radius={[4, 4, 0, 0]} barSize={11}>
+                <Bar dataKey="prev" radius={[4, 4, 0, 0]} barSize={11}>
                   {monthly.map((d) => <Cell key={d.m} fill={PREV_COLOR} fillOpacity={d.inPeriod ? 1 : 0.35} />)}
                 </Bar>
                 {e.fin.ingOp?.ppto && <Line dataKey="ppto" stroke="#0d2438" strokeDasharray="5 4" strokeWidth={2} dot={false} />}
@@ -160,7 +166,7 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
           </div>
         </Panel>
 
-        <Panel eyebrow="RENTABILIDAD" title={has("ebitda") ? "EBITDA y resultado mensual 2025" : "Resultado mensual 2025"} right={<Legend items={[...(has("ebitda") ? [{ label: "EBITDA", color: "#0d2438" }] : []), { label: "Resultado", color: "#df9d37" }]} />}>
+        <Panel eyebrow="RENTABILIDAD" title={has("ebitda") ? `EBITDA y resultado mensual ${CUR}` : `Resultado mensual ${CUR}`} right={<Legend items={[...(has("ebitda") ? [{ label: "EBITDA", color: "#0d2438" }] : []), { label: "Resultado", color: "#df9d37" }]} />}>
           <div className="h-[260px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={monthly} margin={{ top: 4, right: 8, left: 0, bottom: 0 }} barGap={2}>
@@ -194,7 +200,7 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
             {expenses.map((x) => {
               const share = expTotal ? (x.v / expTotal) * 100 : 0;
               return (
-                <div key={x.key} className="group grid grid-cols-[130px_1fr_150px] items-center gap-3 text-xs" title={`2024: ${fmtValue(x.prev, "cop")}`}>
+                <div key={x.key} className="group grid grid-cols-[130px_1fr_150px] items-center gap-3 text-xs" title={`${PREV}: ${fmtValue(x.prev, "cop")}`}>
                   <span className="truncate font-semibold">{x.label}</span>
                   <div className="h-2 overflow-hidden rounded-full bg-secondary">
                     <div className="h-full rounded-full bg-[#15384f] transition-all group-hover:bg-[#e42b35]" style={{ width: `${Math.max(1.5, share)}%` }} />
@@ -210,7 +216,7 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
           {e.id === "tecnosabana" && <p className="mt-4 text-[11px] text-muted-foreground">Tecnosabana solo reporta gastos agregados por cuenta (51 administración, 52 ventas).</p>}
         </Panel>
 
-        <Panel eyebrow="OPERACIÓN" title="Servicios por tipo · 2025" right={servKeys.length ? <Legend items={servKeys.map((s) => ({ label: s.label, color: s.color }))} /> : undefined}>
+        <Panel eyebrow="OPERACIÓN" title={`Servicios por tipo · ${CUR}`} right={servKeys.length ? <Legend items={servKeys.map((s) => ({ label: s.label, color: s.color }))} /> : undefined}>
           {servKeys.length ? (
             <div className="h-[260px]">
               <ResponsiveContainer width="100%" height="100%">
@@ -241,19 +247,19 @@ export function CdaDetail({ id, period, onChange }: { id: string; period: Period
 
       <Panel eyebrow={`ESTADO DE RESULTADOS · ${periodLabel(period).toUpperCase()}`} title="Resumen contable" right={<span className="text-[11px] text-muted-foreground">Valores en pesos colombianos</span>}>
         <div className="-mx-5 overflow-x-auto sm:-mx-6">
-          <table className="w-full min-w-[640px] text-xs">
+          <table className="w-full whitespace-nowrap min-w-[640px] text-xs">
             <thead>
               <tr className="border-y border-border bg-secondary/50 font-mono text-[10px] tracking-[0.08em] text-muted-foreground">
                 <th className="py-2.5 pl-5 text-left font-semibold sm:pl-6">CONCEPTO</th>
-                <th className="px-3 text-right font-semibold">2025</th>
+                <th className="px-3 text-right font-semibold">{CUR}</th>
                 <th className="px-3 text-right font-semibold">% ING.</th>
-                <th className="px-3 text-right font-semibold">2024</th>
+                <th className="px-3 text-right font-semibold">{PREV}</th>
                 <th className="px-3 pr-5 text-right font-semibold sm:pr-6">VARIACIÓN</th>
               </tr>
             </thead>
             <tbody>
               {PNL.filter((p) => has(p.key)).map((p) => {
-                const a = finSum(e, p.key, idx), b = finSum(e, p.key, idx, "y24");
+                const a = finSum(e, p.key, idx), b = finSum(e, p.key, idx, "prev");
                 return (
                   <tr key={p.key} className={`border-b border-border/60 ${p.strong ? "bg-[#fffefa] font-bold" : ""}`}>
                     <td className={`py-2.5 pl-5 sm:pl-6 ${p.expense && !p.strong ? "pl-8 text-muted-foreground sm:pl-9" : ""}`}>{p.label}</td>

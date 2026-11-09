@@ -1,7 +1,7 @@
 import { useRef, useState } from "react";
-import { BarChart3, CalendarClock, CheckCircle2, Download, FileBarChart, FileSpreadsheet, GitCompare, Printer, UploadCloud, PieChart } from "lucide-react";
+import { BarChart3, CalendarClock, CheckCircle2, CircleDashed, Download, FileBarChart, FileSpreadsheet, GitCompare, Printer, UploadCloud, PieChart } from "lucide-react";
 import { toast } from "sonner";
-import { ENTITIES, METRICS, MONTHS_LONG, byId, downloadCSV, fmtPct, fmtValue, metric, periodLabel, periodMonths, variation, type Period } from "../data/metrics";
+import { ENTITIES, metricsAvailable, MONTHS_LONG, byId, downloadCSV, fmtPct, fmtValue, metric, periodLabel, periodMonths, variation, type Period, CUR, PREV, DS, NM } from "../data/metrics";
 import { Panel } from "./ui";
 
 type View = "grupo" | "cda" | "comparar";
@@ -9,24 +9,24 @@ type View = "grupo" | "cda" | "comparar";
 export function Reports({ period, go }: { period: Period; go: (v: View, id?: string) => void }) {
   const idx = periodMonths(period);
   const totalIng = ENTITIES.reduce((acc, e) => acc + (metric(e, "ingresos", idx) ?? 0), 0);
-  const shares = ENTITIES.map((e) => ({ e, v: metric(e, "ingresos", idx) ?? 0, prev: metric(e, "ingresos", idx, "y24") ?? 0 })).sort((x, y) => y.v - x.v);
+  const shares = ENTITIES.filter((e) => !e.pending).map((e) => ({ e, v: metric(e, "ingresos", idx) ?? 0, prev: metric(e, "ingresos", idx, "prev") ?? 0 })).sort((x, y) => y.v - x.v);
 
   const exportGroup = () =>
     downloadCSV(`comparativo-grupo-${periodLabel(period).replace(/\s/g, "-")}.csv`, [
-      ["CDA", ...METRICS.flatMap((m) => [`${m.label} 2025`, `${m.label} 2024`])],
-      ...ENTITIES.map((e) => [e.name, ...METRICS.flatMap((m) => [metric(e, m.key, idx), metric(e, m.key, idx, "y24")])]),
+      ["CDA", ...metricsAvailable().flatMap((m) => [`${m.label} ${CUR}`, `${m.label} ${PREV}`])],
+      ...ENTITIES.map((e) => [e.name, ...metricsAvailable().flatMap((m) => [metric(e, m.key, idx), metric(e, m.key, idx, "prev")])]),
     ]);
 
   const exportServices = () =>
-    downloadCSV("servicios-por-mes-2025.csv", [
-      ["CDA", "Mes", "RTM 2025", "Preventivas 2025", "Total 2025", "Total 2024"],
-      ...ENTITIES.filter((e) => e.services).flatMap((e) => MONTHS_LONG.map((m, i) => [e.short, m, metric(e, "rtm", [i]), metric(e, "preventivas", [i]), metric(e, "servicios", [i]), metric(e, "servicios", [i], "y24")])),
+    downloadCSV(`servicios-por-mes-${CUR}.csv`, [
+      ["CDA", "Mes", `RTM ${CUR}`, `Preventivas ${CUR}`, `Total ${CUR}`, `Total ${PREV}`],
+      ...ENTITIES.filter((e) => e.services).flatMap((e) => MONTHS_LONG.slice(0, NM).map((m, i) => [e.short, m, metric(e, "rtm", [i]), metric(e, "preventivas", [i]), metric(e, "servicios", [i]), metric(e, "servicios", [i], "prev")])),
     ]);
 
   const cards = [
     { icon: BarChart3, title: "Informe ejecutivo del grupo", desc: "KPIs consolidados, ranking de CDAs y evolución mensual.", open: () => go("grupo"), csv: exportGroup },
     { icon: FileBarChart, title: "Ficha mensual por CDA", desc: "Estado de resultados, estructura de gastos y servicios de un CDA.", open: () => go("cda", "unimilenio") },
-    { icon: GitCompare, title: "Comparativo entre CDAs", desc: "Cualquier indicador, 2025 vs 2024, contra el promedio del grupo.", open: () => go("comparar"), csv: exportGroup },
+    { icon: GitCompare, title: "Comparativo entre CDAs", desc: `Cualquier indicador, ${CUR} vs ${PREV}, contra el promedio del grupo.`, open: () => go("comparar"), csv: exportGroup },
     { icon: FileSpreadsheet, title: "Servicios RTM y preventivas", desc: "Cantidad de servicios por mes y tipo (5 CDAs; Tecnosabana no reporta servicios).", open: () => go("comparar"), csv: exportServices },
   ];
 
@@ -69,19 +69,18 @@ export function Reports({ period, go }: { period: Period; go: (v: View, id?: str
             </div>
           ))}
         </div>
-        <p className="mt-4 text-[11px] text-muted-foreground">Columnas: ingresos operacionales, participación en el grupo y variación frente a 2024. * Estimado por % de servicios.</p>
+        <p className="mt-4 text-[11px] text-muted-foreground">Columnas: ingresos operacionales, participación en el grupo y variación frente a {PREV}. * ITAC Norte/Sur: valores parcialmente estimados.</p>
       </Panel>
     </div>
   );
 }
 
-const SOURCES = [
-  { ids: ["la37"], file: "Mapa_Tipo_CDA_37_ENERO_A_DICIEMBRE_de__2025_final.xlsx", sheets: "Año 2025 · INGRESOS SERV" },
-  { ids: ["inteco"], file: "MAPA_TIPO__A_DICIEMBRE__2025_INTECO.xlsx", sheets: "Año 2025 · CANT SERV ING" },
-  { ids: ["itac-norte", "itac-sur"], file: "INFORME_Mapatipo__ITAC_A_DICIEMBRE_2025.xlsx", sheets: "AÑO 2025 · SERVICIO Q (por sede)" },
-  { ids: ["tecnosabana"], file: "MAPATIPO_TECNOSABANA__A_O_2024-2025.xlsx", sheets: "AÑO 2024-2025" },
-  { ids: ["unimilenio"], file: "Mapa_Tipo_Unimilenio_A_Diciembre_2025.xlsx", sheets: "AÑO 2025 · CANT ING SERVICIOS" },
-];
+/** Archivos de origen del conjunto activo, agrupados por archivo. */
+const sources = () => {
+  const map = new Map<string, string[]>();
+  ENTITIES.forEach((e) => e.sources.forEach((f) => map.set(f, [...(map.get(f) ?? []), e.id])));
+  return [...map.entries()].map(([file, ids]) => ({ file, ids }));
+};
 
 export function DataLoad() {
   const input = useRef<HTMLInputElement>(null);
@@ -124,27 +123,31 @@ export function DataLoad() {
 
       <Panel eyebrow="FUENTES ACTIVAS" title="Archivos que alimentan los tableros">
         <div className="-mx-5 overflow-x-auto sm:-mx-6">
-          <table className="w-full min-w-[720px] text-xs">
+          <table className="w-full whitespace-nowrap min-w-[720px] text-xs">
             <thead>
               <tr className="border-y border-border bg-secondary/50 font-mono text-[10px] tracking-[0.08em] text-muted-foreground">
                 <th className="py-2.5 pl-5 text-left font-semibold sm:pl-6">UNIDAD</th>
                 <th className="px-3 text-left font-semibold">ARCHIVO</th>
-                <th className="px-3 text-left font-semibold">HOJAS LEÍDAS</th>
-                <th className="px-3 text-left font-semibold">CORTE</th>
+                <th className="px-3 text-left font-semibold">PERÍODO</th>
                 <th className="px-3 pr-5 text-left font-semibold sm:pr-6">ESTADO</th>
               </tr>
             </thead>
             <tbody>
-              {SOURCES.map((s) => {
+              {[...sources(), ...ENTITIES.filter((e) => e.pending).map((e) => ({ file: "", ids: [e.id] }))].map((s) => {
                 return (
                   <tr key={s.file} className="border-b border-border/60">
                     <td className="py-3 pl-5 sm:pl-6">
                       {s.ids.map((id) => { const e = byId(id); return <span key={id} className="mr-3 inline-flex items-center gap-2 font-bold"><span className="h-2.5 w-2.5 rounded-full" style={{ background: e.color }} />{e.short}</span>; })}
                     </td>
-                    <td className="px-3 font-mono text-[11px]">{s.file}</td>
-                    <td className="px-3 text-muted-foreground">{s.sheets}</td>
-                    <td className="px-3">Dic 2025</td>
-                    <td className="px-3 pr-5 sm:pr-6"><span className="inline-flex items-center gap-1 font-semibold text-emerald-800"><CheckCircle2 size={13} /> Procesado</span></td>
+                    <td className="px-3 font-mono text-[11px]">{s.file || <span className="font-sans text-muted-foreground">—</span>}</td>
+                    <td className="px-3">{DS.label}</td>
+                    <td className="px-3 pr-5 sm:pr-6">
+                      {s.file ? (
+                        <span className="inline-flex items-center gap-1 font-semibold text-emerald-800"><CheckCircle2 size={13} /> Procesado</span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 font-semibold text-amber-700"><CircleDashed size={13} /> Pendiente</span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
