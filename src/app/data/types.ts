@@ -5,6 +5,9 @@ export type FinKey =
   | "personal" | "honorarios" | "impuestos" | "arrendamientos" | "servicios"
   | "mantenimiento" | "depreciaciones" | "amortizaciones" | "diversos" | "seguros"
   | "gastAdmin" | "gastVentas"
+  | "contribuciones" | "legales" | "adecuacion" | "viaje" | "depNiif"
+  | "extraordinarios" | "intNiif"
+  | "inoFinancieros" | "inoArrendamientos" | "inoVentaBienes" | "inoRecuperaciones" | "inoIndemnizaciones" | "inoDiversos"
   | "gastOp" | "financieros" | "noOp" | "gastTotal" | "resultado" | "ebitda";
 
 export type ServiceKey =

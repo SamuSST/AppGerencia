@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Bar, BarChart, CartesianGrid, Cell, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { Check, Download } from "lucide-react";
 import { ENTITIES, metricsAvailable, MONTHS, MONTHS_LONG, downloadCSV, fmtAxis, fmtPct, fmtValue, metric, metricDef, periodLabel, periodMonths, variation, type MetricKey, type Period, CUR, PREV } from "../data/metrics";
-import { ExpenseCompare } from "./ExpenseCompare";
+import { ConceptCompare } from "./ExpenseCompare";
 import { ChartTip, Delta, GRID, Legend, Panel, PREV_COLOR, Segmented, axisTick } from "./ui";
 
 const pp = (v: number) => `${v >= 0 ? "+" : ""}${v.toLocaleString("es-CO", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} pp`;
@@ -155,7 +155,7 @@ export function Compare({ period, selected, setSelected }: { period: Period; sel
         </Panel>
       )}
 
-      <ExpenseCompare period={period} selected={selected} />
+      <ConceptCompare key={mk} metricKey={mk} period={period} selected={selected} />
     </div>
   );
 }
